@@ -19,7 +19,7 @@ export function BookingOptionChip({
     <Pressable
       accessibilityRole="button"
       onPress={onPress}
-      className={`min-w-[140px] rounded-xl border p-3 ${
+      className={`min-w-35 rounded-xl border p-3 ${
         selected
           ? "border-neutral-900 bg-neutral-900"
           : "border-neutral-200 bg-white"
