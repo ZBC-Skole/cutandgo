@@ -318,7 +318,7 @@ export default function BookingScreen() {
                 title={salon.name}
                 subtitle={`${salon.city} • ${salon.address}`}
                 selected={salon.id === selectedSalonId}
-                className="w-[240px]"
+                className="w-60"
                 onPress={() => handleSelectSalon(salon.id)}
               />
             ))}
@@ -367,7 +367,7 @@ export default function BookingScreen() {
                   title={stylist.name}
                   subtitle={`${stylist.role} • ${stylist.workingHours.start}-${stylist.workingHours.end}`}
                   selected={stylist.id === selectedStylistId}
-                  className="w-[220px]"
+                  className="w-50"
                   onPress={() => handleSelectStylist(stylist.id)}
                 />
               ))}
@@ -414,7 +414,7 @@ export default function BookingScreen() {
                     key={dateOption.key}
                     title={dateOption.label}
                     selected={dateOption.key === selectedDateKey}
-                    className="min-w-[108px]"
+                    className="min-w-27"
                     onPress={() => handleSelectDate(dateOption.key)}
                   />
                 ))}
