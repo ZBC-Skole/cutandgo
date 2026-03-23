@@ -25,6 +25,9 @@ export function OverviewScreen() {
           appointments={upcoming.slice(0, 3)}
           emptyText="Ingen kommende tider endnu."
           showStatusForFirst
+          onPressAppointment={(appointment) =>
+            router.push(`/(overview)/booking/${appointment.id}`)
+          }
           onPressViewAll={() => router.push("/(overview)/upcoming")}
         />
 
@@ -33,6 +36,9 @@ export function OverviewScreen() {
           appointments={past.slice(0, 5)}
           emptyText="Ingen tidligere bookinger endnu."
           compactAll
+          onPressAppointment={(appointment) =>
+            router.push(`/(overview)/booking/${appointment.id}`)
+          }
           onPressViewAll={() => router.push("/(overview)/past")}
         />
       </View>

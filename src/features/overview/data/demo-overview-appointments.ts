@@ -16,6 +16,9 @@ export const demoOverviewAppointments: OverviewAppointment[] = [
     stylistName: "Mads Jensen",
     startsAt: createDateAt(1, 14, 30),
     durationMinutes: 45,
+    address: "Vesterbrogade 17, 1620 København V",
+    latitude: 55.6726,
+    longitude: 12.5561,
     statusLabel: "NÆSTE",
   },
   {
@@ -25,6 +28,9 @@ export const demoOverviewAppointments: OverviewAppointment[] = [
     stylistName: "Mads J.",
     startsAt: createDateAt(2, 10, 15),
     durationMinutes: 20,
+    address: "Vesterbrogade 17, 1620 København V",
+    latitude: 55.6726,
+    longitude: 12.5561,
   },
   {
     id: "upcoming-3",
@@ -33,6 +39,9 @@ export const demoOverviewAppointments: OverviewAppointment[] = [
     stylistName: "Sara",
     startsAt: createDateAt(4, 9, 0),
     durationMinutes: 45,
+    address: "Gammel Kongevej 94, 1850 Frederiksberg",
+    latitude: 55.6779,
+    longitude: 12.5346,
   },
   {
     id: "upcoming-4",
@@ -41,6 +50,9 @@ export const demoOverviewAppointments: OverviewAppointment[] = [
     stylistName: "Amalie",
     startsAt: createDateAt(8, 11, 0),
     durationMinutes: 90,
+    address: "Vesterbrogade 17, 1620 København V",
+    latitude: 55.6726,
+    longitude: 12.5561,
   },
   {
     id: "past-1",
@@ -49,6 +61,9 @@ export const demoOverviewAppointments: OverviewAppointment[] = [
     stylistName: "Mads Jensen",
     startsAt: createDateAt(-1, 16, 0),
     durationMinutes: 45,
+    address: "Vesterbrogade 17, 1620 København V",
+    latitude: 55.6726,
+    longitude: 12.5561,
   },
   {
     id: "past-2",
@@ -57,6 +72,9 @@ export const demoOverviewAppointments: OverviewAppointment[] = [
     stylistName: "Jonas",
     startsAt: createDateAt(-4, 12, 30),
     durationMinutes: 20,
+    address: "Gammel Kongevej 94, 1850 Frederiksberg",
+    latitude: 55.6779,
+    longitude: 12.5346,
   },
   {
     id: "past-3",
@@ -65,6 +83,9 @@ export const demoOverviewAppointments: OverviewAppointment[] = [
     stylistName: "Amalie",
     startsAt: createDateAt(-6, 15, 15),
     durationMinutes: 25,
+    address: "Vesterbrogade 17, 1620 København V",
+    latitude: 55.6726,
+    longitude: 12.5561,
   },
   {
     id: "past-4",
@@ -73,6 +94,9 @@ export const demoOverviewAppointments: OverviewAppointment[] = [
     stylistName: "Sara",
     startsAt: createDateAt(-11, 10, 0),
     durationMinutes: 120,
+    address: "Gammel Kongevej 94, 1850 Frederiksberg",
+    latitude: 55.6779,
+    longitude: 12.5346,
   },
   {
     id: "past-5",
@@ -81,6 +105,9 @@ export const demoOverviewAppointments: OverviewAppointment[] = [
     stylistName: "Mikkel",
     startsAt: createDateAt(-16, 13, 45),
     durationMinutes: 30,
+    address: "Vesterbrogade 17, 1620 København V",
+    latitude: 55.6726,
+    longitude: 12.5561,
   },
   {
     id: "past-6",
@@ -89,5 +116,8 @@ export const demoOverviewAppointments: OverviewAppointment[] = [
     stylistName: "Sara",
     startsAt: createDateAt(-20, 9, 30),
     durationMinutes: 45,
+    address: "Gammel Kongevej 94, 1850 Frederiksberg",
+    latitude: 55.6779,
+    longitude: 12.5346,
   },
 ];

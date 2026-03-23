@@ -7,6 +7,7 @@ type OverviewSectionProperties = {
   appointments: OverviewAppointment[];
   emptyText: string;
   onPressViewAll: () => void;
+  onPressAppointment?: (appointment: OverviewAppointment) => void;
   showStatusForFirst?: boolean;
   compactAll?: boolean;
 };
@@ -16,6 +17,7 @@ export function OverviewSection({
   appointments,
   emptyText,
   onPressViewAll,
+  onPressAppointment,
   showStatusForFirst = false,
   compactAll = false,
 }: OverviewSectionProperties) {
@@ -49,6 +51,11 @@ export function OverviewSection({
                 compactAll || (showStatusForFirst && index > 0)
                   ? "compact"
                   : "default"
+              }
+              onPress={
+                onPressAppointment
+                  ? () => onPressAppointment(appointment)
+                  : undefined
               }
             />
           ))}

@@ -5,11 +5,12 @@ import {
   parseOverviewFilter,
   splitOverviewAppointments,
 } from "@/features/overview/lib/appointments";
-import { Stack, useLocalSearchParams } from "expo-router";
+import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useMemo } from "react";
 import { ScrollView, Text, View } from "react-native";
 
 export function OverviewListScreen() {
+  const router = useRouter();
   const parameters = useLocalSearchParams<{ filter?: string | string[] }>();
 
   const filterValue = Array.isArray(parameters.filter)
@@ -40,6 +41,9 @@ export function OverviewListScreen() {
               key={appointment.id}
               appointment={appointment}
               showStatus={filter === "upcoming" && index === 0}
+              onPress={() =>
+                router.push(`/(overview)/booking/${appointment.id}`)
+              }
               variant={
                 filter === "past" || (filter === "upcoming" && index > 0)
                   ? "compact"

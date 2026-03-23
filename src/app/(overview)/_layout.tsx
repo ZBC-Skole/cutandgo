@@ -8,6 +8,15 @@ export default function OverviewLayout() {
         options={{ title: "Overblik", headerLargeTitleEnabled: true }}
       />
       <Stack.Screen name="[filter]" options={{ title: "Bookinger" }} />
+      <Stack.Screen
+        name="booking/[id]"
+        options={{
+          title: "Booking detaljer",
+          presentation: "formSheet",
+          sheetGrabberVisible: true,
+          sheetAllowedDetents: [0.6, 1.0],
+        }}
+      />
     </Stack>
   );
 }

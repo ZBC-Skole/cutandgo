@@ -33,3 +33,17 @@ export function parseOverviewFilter(value: string | undefined): OverviewFilter {
 export function getOverviewFilterTitle(filter: OverviewFilter) {
   return filter === "past" ? "Tidligere bookinger" : "Kommende tider";
 }
+
+export function findOverviewAppointmentById(
+  appointments: OverviewAppointment[],
+  id: string,
+) {
+  return appointments.find((appointment) => appointment.id === id) ?? null;
+}
+
+export function isOverviewAppointmentPast(
+  appointment: OverviewAppointment,
+  now: Date,
+) {
+  return new Date(appointment.startsAt).getTime() <= now.getTime();
+}

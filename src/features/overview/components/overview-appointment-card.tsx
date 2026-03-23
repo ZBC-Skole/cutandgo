@@ -4,7 +4,7 @@ import {
 } from "@/features/overview/lib/date-time";
 import type { OverviewAppointment } from "@/features/overview/types";
 import { Ionicons } from "@expo/vector-icons";
-import { Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 
 const monthFormatter = new Intl.DateTimeFormat("da-DK", { month: "short" });
 const dayFormatter = new Intl.DateTimeFormat("da-DK", { day: "2-digit" });
@@ -17,12 +17,14 @@ type OverviewAppointmentCardProperties = {
   appointment: OverviewAppointment;
   showStatus?: boolean;
   variant?: "default" | "compact";
+  onPress?: () => void;
 };
 
 export function OverviewAppointmentCard({
   appointment,
   showStatus = false,
   variant = "default",
+  onPress,
 }: OverviewAppointmentCardProperties) {
   const startDate = new Date(appointment.startsAt);
   const endDate = new Date(
@@ -37,11 +39,8 @@ export function OverviewAppointmentCard({
     const day = dayFormatter.format(startDate).replace(".", "");
     const time = timeFormatter.format(startDate);
 
-    return (
-      <View
-        className="flex-row items-center gap-3 rounded-2xl bg-neutral-200/60 p-4"
-        style={{ borderCurve: "continuous" }}
-      >
+    const content = (
+      <>
         <View
           className="size-14 items-center rounded-xl bg-neutral-100/60 p-2"
           style={{ borderCurve: "continuous" }}
@@ -64,15 +63,34 @@ export function OverviewAppointmentCard({
         </View>
 
         <Ionicons name="chevron-forward" size={20} />
+      </>
+    );
+
+    if (onPress) {
+      return (
+        <Pressable
+          accessibilityRole="button"
+          onPress={onPress}
+          className="flex-row items-center gap-3 rounded-2xl bg-neutral-200/60 p-4"
+          style={{ borderCurve: "continuous" }}
+        >
+          {content}
+        </Pressable>
+      );
+    }
+
+    return (
+      <View
+        className="flex-row items-center gap-3 rounded-2xl bg-neutral-200/60 p-4"
+        style={{ borderCurve: "continuous" }}
+      >
+        {content}
       </View>
     );
   }
 
-  return (
-    <View
-      className="gap-3 rounded-2xl bg-white p-4"
-      style={{ borderCurve: "continuous" }}
-    >
+  const content = (
+    <>
       <View className="flex-row items-start justify-between gap-3">
         <View className="flex-1 gap-1">
           <Text selectable className="text-xl font-semibold text-neutral-900">
@@ -127,6 +145,28 @@ export function OverviewAppointmentCard({
           </Text>
         </View>
       </View>
+    </>
+  );
+
+  if (onPress) {
+    return (
+      <Pressable
+        accessibilityRole="button"
+        onPress={onPress}
+        className="gap-3 rounded-2xl bg-white p-4"
+        style={{ borderCurve: "continuous" }}
+      >
+        {content}
+      </Pressable>
+    );
+  }
+
+  return (
+    <View
+      className="gap-3 rounded-2xl bg-white p-4"
+      style={{ borderCurve: "continuous" }}
+    >
+      {content}
     </View>
   );
 }

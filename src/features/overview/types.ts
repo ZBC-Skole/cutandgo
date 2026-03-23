@@ -7,5 +7,9 @@ export type OverviewAppointment = {
   stylistName: string;
   startsAt: string;
   durationMinutes: number;
+  address: string;
+  latitude?: number;
+  longitude?: number;
+  referencePhotoUri?: string;
   statusLabel?: string;
 };
