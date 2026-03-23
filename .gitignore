@@ -9,6 +9,9 @@ dist/
 web-build/
 expo-env.d.ts
 
+# Convex
+./convex/_generated
+
 # Native
 .kotlin/
 *.orig.*
