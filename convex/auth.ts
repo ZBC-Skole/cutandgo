@@ -14,7 +14,15 @@ const siteUrl = process.env.EXPO_PUBLIC_CONVEX_SITE_URL!;
 
 export const createAuth = (ctx: GenericCtx<DataModel>) => {
   return betterAuth({
-    trustedOrigins: [siteUrl, "your-scheme://"],
+    trustedOrigins: [
+      siteUrl,
+      ...(process.env.NODE_ENV === "development"
+        ? [
+            "exp://", // Trust all Expo URLs
+            "http://127.0.0.1:3211",
+          ]
+        : ["cutandgo://"]),
+    ],
     database: authComponent.adapter(ctx),
     // Configure simple, non-verified email/password to get started
     emailAndPassword: {

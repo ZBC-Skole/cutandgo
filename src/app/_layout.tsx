@@ -1,5 +1,6 @@
-import "@/global.css";
 import { RootTabs } from "@/components/navigation/root-tabs";
+import AuthGuard from "@/components/ui/auth-guard";
+import "@/global.css";
 import { authClient } from "@/lib/auth-client";
 import { ConvexBetterAuthProvider } from "@convex-dev/better-auth/react";
 import { ConvexReactClient } from "convex/react";
@@ -15,7 +16,9 @@ const convex = new ConvexReactClient(
 export default function RootLayout() {
   return (
     <ConvexBetterAuthProvider client={convex} authClient={authClient}>
-      <RootTabs />
+      <AuthGuard>
+        <RootTabs />
+      </AuthGuard>
     </ConvexBetterAuthProvider>
   );
 }
