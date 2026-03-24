@@ -1,0 +1,40 @@
+flowchart LR
+    subgraph Client["Klientlag"]
+      C1["Expo App (iOS/Android)"]
+      C2["Web (Expo Router)"]
+      C3["RoleGuard + AuthGuard"]
+      C4["Feature UI: auth, booking, overview, admin, settings"]
+    end
+
+    subgraph Backend["Backendlag (Convex)"]
+      B1["Queries"]
+      B2["Mutations"]
+      B3["AuthZ (requireAppRole, requireSalonAccess)"]
+      B4["Business Logic (booking slots, cancellation, analytics)"]
+    end
+
+    subgraph Auth["Autentifikation"]
+      A1["Better Auth"]
+      A2["Convex Better Auth Component"]
+    end
+
+    subgraph Data["Datalag"]
+      D1[("Convex DB")]
+      D2[("Convex Storage")]
+    end
+
+    C1 --> C3
+    C2 --> C3
+    C3 --> C4
+    C4 --> B1
+    C4 --> B2
+
+    B1 --> B3
+    B2 --> B3
+    B3 --> B4
+    B4 --> D1
+    B2 --> D2
+
+    C4 --> A1
+    A1 --> A2
+    A2 --> B3

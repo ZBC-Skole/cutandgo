@@ -52,6 +52,15 @@ export default defineSchema({
     .index("by_auth_user_id", ["authUserId"])
     .index("by_preferred_salon", ["preferredSalonId"]),
 
+  adminOnboardingStates: defineTable({
+    authUserId: v.string(),
+    completedAt: v.optional(v.number()),
+    dismissedAt: v.optional(v.number()),
+    version: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_auth_user_id", ["authUserId"]),
+
   salons: defineTable({
     name: v.string(),
     slug: v.string(),
@@ -129,7 +138,11 @@ export default defineSchema({
     startAt: v.number(),
     endAt: v.number(),
     reason: v.optional(v.string()),
-    status: v.union(v.literal("planned"), v.literal("active"), v.literal("resolved")),
+    status: v.union(
+      v.literal("planned"),
+      v.literal("active"),
+      v.literal("resolved"),
+    ),
     cancelledAppointmentsCount: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -211,7 +224,11 @@ export default defineSchema({
   appointmentPhotos: defineTable({
     bookingId: v.id("bookings"),
     storageId: v.id("_storage"),
-    photoType: v.union(v.literal("before"), v.literal("after"), v.literal("reference")),
+    photoType: v.union(
+      v.literal("before"),
+      v.literal("after"),
+      v.literal("reference"),
+    ),
     uploadedByAuthUserId: v.string(),
     caption: v.optional(v.string()),
     createdAt: v.number(),

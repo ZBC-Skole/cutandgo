@@ -1,0 +1,20 @@
+flowchart LR
+    A["Kodeændring"] --> B["Lint: npm run lint"]
+    B --> C{"Fejl fundet?"}
+
+    C -- "Ja" --> D["Ret formattering/regelbrud"]
+    D --> B
+
+    C -- "Nej" --> E["Manuel funktionel test"]
+    E --> F["Auth + roller"]
+    E --> G["Admin onboarding flow"]
+    E --> H["Bookinglogik (slots/konflikter)"]
+    E --> I["Media upload adgang"]
+
+    F --> J["Godkend til aflevering"]
+    G --> J
+    H --> J
+    I --> J
+
+    K["Aktuel status"] --> K1["5 Prettier-fejl i admin/onboarding/ui.tsx"]
+    K1 --> D

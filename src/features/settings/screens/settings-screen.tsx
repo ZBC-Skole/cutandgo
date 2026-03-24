@@ -1,6 +1,8 @@
+import { api } from "@/convex/_generated/api";
 import { useRole } from "@/hooks/use-role";
 import { authClient } from "@/lib/auth-client";
 import { Ionicons } from "@expo/vector-icons";
+import { useMutation } from "convex/react";
 import Constants from "expo-constants";
 import * as Linking from "expo-linking";
 import { useRouter } from "expo-router";
@@ -92,7 +94,9 @@ export function SettingsScreen() {
   const router = useRouter();
   const sessionState = authClient.useSession();
   const role = useRole();
+  const resetAdminOnboarding = useMutation(api.adminOnboarding.resetMy);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [isResettingOnboarding, setIsResettingOnboarding] = useState(false);
 
   const sessionData = useMemo(
     () => (sessionState.data as SessionShape | null) ?? null,
@@ -141,6 +145,22 @@ export function SettingsScreen() {
       Alert.alert("Kunne ikke logge ud", "Prøv igen om et øjeblik.");
     } finally {
       setIsSigningOut(false);
+    }
+  }
+
+  async function handleRestartOnboarding() {
+    if (!role.isAdmin || isResettingOnboarding) {
+      return;
+    }
+
+    try {
+      setIsResettingOnboarding(true);
+      await resetAdminOnboarding({});
+      router.push("/admin");
+    } catch {
+      Alert.alert("Kunne ikke starte onboarding", "Prøv igen om et øjeblik.");
+    } finally {
+      setIsResettingOnboarding(false);
     }
   }
 
@@ -244,6 +264,16 @@ export function SettingsScreen() {
               subtitle="Saloner, ansatte, services og tider"
               iconName="construct-outline"
               onPress={() => router.push("/admin")}
+            />
+            <SettingsRow
+              title={
+                isResettingOnboarding
+                  ? "Starter onboarding..."
+                  : "Kør onboarding igen"
+              }
+              subtitle="Genåbn setup-flowet for admin"
+              iconName="refresh-outline"
+              onPress={handleRestartOnboarding}
             />
           </>
         ) : null}

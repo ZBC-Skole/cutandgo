@@ -1,0 +1,26 @@
+sequenceDiagram
+    participant Dev as Udvikler
+    participant FE as Expo App
+    participant BE as Convex Backend
+    participant DB as Convex DB/Storage
+    participant AU as Better Auth
+
+    Dev->>Dev: Konfigurer .env.local
+    Dev->>FE: npm install && npm run start
+    Dev->>BE: Deploy Convex functions
+
+    FE->>AU: Login/signup (email/password)
+    AU->>BE: Session + auth claims
+    BE->>DB: Gem/hent roller og profiler
+
+    FE->>BE: Query/mutation (booking/admin)
+    BE->>BE: AuthZ checks (role/salon access)
+    BE->>DB: Læs/skriv booking, salon, staff, services
+    DB-->>BE: Resultat
+    BE-->>FE: Respons
+
+    FE->>BE: createUploadUrl
+    BE->>DB: Generer storage upload URL
+    DB-->>FE: Upload URL
+
+    Note over Dev,DB: Drift: monitorering, backup, versionsstyring og regelmæssig lint/test

@@ -1,0 +1,18 @@
+flowchart TD
+    Start["App starter"] --> Auth{"Bruger logget ind?"}
+
+    Auth -- "Nej" --> Login["AuthScreen (Log ind/Opret konto)"]
+    Auth -- "Ja" --> Role{"Primær rolle"}
+
+    Role -- "admin" --> AdminTabs["Tabs: Admin + Indstillinger"]
+    Role -- "kunde/medarbejder" --> UserTabs["Tabs: Overblik + Booking + Indstillinger"]
+
+    AdminTabs --> AdminRoute["/admin (RoleGuard: admin)"]
+    AdminTabs --> SettingsRoute1["/settings"]
+
+    UserTabs --> OverviewRoute["/(overview) (RoleGuard: kunde/medarbejder)"]
+    UserTabs --> OrdersRoute["/(orders) (RoleGuard: kunde/medarbejder)"]
+    UserTabs --> SettingsRoute2["/settings"]
+
+    OverviewRoute --> BookingDetails["/booking/[id] + map + reference billeder"]
+    OrdersRoute --> BookingFlow["Vælg salon, service, stylist, dato, tid"]

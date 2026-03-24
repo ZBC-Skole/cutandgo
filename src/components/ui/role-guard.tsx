@@ -1,11 +1,12 @@
 import { useRole } from "@/hooks/use-role";
 import { Redirect } from "expo-router";
+import type { Href } from "expo-router";
 import type { ReactNode } from "react";
 import LoadingView from "./loading-view";
 
 type RoleGuardProps = {
   allow: ("admin" | "medarbejder" | "kunde")[];
-  fallbackHref: string;
+  fallbackHref: Href;
   children: ReactNode;
 };
 
