@@ -1,14 +1,10 @@
 import { Stack } from "expo-router";
 
-export default function SettingsLayout() {
+export default function AdminLayout() {
   return (
     <Stack screenOptions={{ headerBackButtonDisplayMode: "minimal" }}>
       <Stack.Screen
         name="index"
-        options={{ title: "Indstillinger", headerLargeTitleEnabled: true }}
-      />
-      <Stack.Screen
-        name="admin"
         options={{ title: "Admin", headerLargeTitleEnabled: true }}
       />
     </Stack>

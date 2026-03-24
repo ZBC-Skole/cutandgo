@@ -3,6 +3,7 @@ import { authClient } from "@/lib/auth-client";
 import { Ionicons } from "@expo/vector-icons";
 import Constants from "expo-constants";
 import * as Linking from "expo-linking";
+import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 import { Alert, Pressable, ScrollView, Text, View } from "react-native";
 
@@ -88,6 +89,7 @@ function SettingsRow({
 }
 
 export function SettingsScreen() {
+  const router = useRouter();
   const sessionState = authClient.useSession();
   const role = useRole();
   const [isSigningOut, setIsSigningOut] = useState(false);
@@ -229,6 +231,27 @@ export function SettingsScreen() {
         className="gap-1 rounded-2xl bg-white p-2"
         style={{ borderCurve: "continuous" }}
       >
+        {role.isAdmin ? (
+          <>
+            <Text
+              selectable
+              className="px-2 pt-2 text-xs font-semibold uppercase tracking-wide text-neutral-500"
+            >
+              Admin
+            </Text>
+            <SettingsRow
+              title="Åbn admin panel"
+              subtitle="Saloner, ansatte, services og tider"
+              iconName="construct-outline"
+              onPress={() => router.push("/admin")}
+            />
+          </>
+        ) : null}
+
+        {role.isAdmin ? (
+          <View className="mx-2 my-1 h-px bg-neutral-200" />
+        ) : null}
+
         <Text
           selectable
           className="px-2 pt-2 text-xs font-semibold uppercase tracking-wide text-neutral-500"

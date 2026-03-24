@@ -31,6 +31,60 @@ export const createEmployee = mutation({
   },
 });
 
+export const listEmployees = query({
+  args: {},
+  handler: async (ctx) => {
+    const employees = await ctx.db.query("employees").collect();
+    return employees.sort((a, b) => a.fullName.localeCompare(b.fullName, "da-DK"));
+  },
+});
+
+export const listSalonEmployees = query({
+  args: {
+    salonId: v.id("salons"),
+  },
+  handler: async (ctx, args) => {
+    await requireSalonAccess(ctx, args.salonId, ["owner", "manager", "stylist", "assistant"]);
+
+    const assignments = await ctx.db
+      .query("employeeSalonRoles")
+      .withIndex("by_salon", (q) => q.eq("salonId", args.salonId))
+      .collect();
+
+    const results = [];
+    for (const assignment of assignments) {
+      const employee = await ctx.db.get(assignment.employeeId);
+      if (!employee) {
+        continue;
+      }
+      results.push({
+        assignment,
+        employee,
+      });
+    }
+    return results;
+  },
+});
+
+export const getWorkingHours = query({
+  args: {
+    employeeId: v.id("employees"),
+    salonId: v.id("salons"),
+  },
+  handler: async (ctx, args) => {
+    await requireSalonAccess(ctx, args.salonId, ["owner", "manager", "stylist", "assistant"]);
+
+    const rows = await ctx.db
+      .query("employeeWorkingHours")
+      .withIndex("by_employee", (q) => q.eq("employeeId", args.employeeId))
+      .collect();
+
+    return rows
+      .filter((row) => row.salonId === args.salonId)
+      .sort((a, b) => a.weekday - b.weekday);
+  },
+});
+
 export const assignEmployeeToSalon = mutation({
   args: {
     employeeId: v.id("employees"),
