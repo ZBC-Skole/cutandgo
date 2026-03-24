@@ -10,6 +10,6 @@ export type OverviewAppointment = {
   address: string;
   latitude?: number;
   longitude?: number;
-  referencePhotoUri?: string;
+  referencePhotoUris?: string[];
   statusLabel?: string;
 };

@@ -1,9 +1,6 @@
 import { MapArea } from "@/features/overview/components/map-area";
 import { demoOverviewAppointments } from "@/features/overview/data/demo-overview-appointments";
-import {
-  findOverviewAppointmentById,
-  isOverviewAppointmentPast,
-} from "@/features/overview/lib/appointments";
+import { findOverviewAppointmentById } from "@/features/overview/lib/appointments";
 import {
   formatDurationMinutes,
   formatOverviewDate,
@@ -12,11 +9,14 @@ import {
 import { overviewMapMode } from "@/features/overview/lib/map-mode";
 import { openRouteInMaps } from "@/features/overview/lib/open-route";
 import { appointmentReferencePhotoByIdAtom } from "@/features/overview/state/overview-atoms";
+import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import { Stack, useLocalSearchParams } from "expo-router";
 import { useAtom } from "jotai";
 import { Alert, Pressable, ScrollView, Text, View } from "react-native";
+
+const referenceSlots = ["Forfra", "Side", "Bagfra"];
 
 export function BookingDetailsSheetScreen() {
   const parameters = useLocalSearchParams<{ id?: string | string[] }>();
@@ -28,11 +28,11 @@ export function BookingDetailsSheetScreen() {
     ? parameters.id[0]
     : parameters.id;
 
-  const appointment = appointmentId
+  const booking = appointmentId
     ? findOverviewAppointmentById(demoOverviewAppointments, appointmentId)
     : null;
 
-  if (!appointment) {
+  if (!booking) {
     return (
       <>
         <Stack.Screen options={{ title: "Booking detaljer" }} />
@@ -47,28 +47,29 @@ export function BookingDetailsSheetScreen() {
             selectable
             className="mt-2 text-center text-sm text-neutral-600"
           >
-            Vi kunne ikke finde denne booking.
+            Vi kunne ikke finde denne currentBooking.
           </Text>
         </View>
       </>
     );
   }
 
-  const booking = appointment;
+  const currentBooking = booking;
 
-  const startsAt = new Date(booking.startsAt);
+  const startsAt = new Date(currentBooking.startsAt);
   const endsAt = new Date(
-    startsAt.getTime() + booking.durationMinutes * 60_000,
+    startsAt.getTime() + currentBooking.durationMinutes * 60_000,
   );
-  const isPast = isOverviewAppointmentPast(booking, new Date());
-  const referencePhotoUri =
-    referencePhotosById[booking.id] ?? booking.referencePhotoUri;
+  const referencePhotoUris =
+    referencePhotosById[currentBooking.id] ??
+    currentBooking.referencePhotoUris ??
+    [];
 
   async function handleOpenRoute() {
     const opened = await openRouteInMaps({
-      address: booking.address,
-      latitude: booking.latitude,
-      longitude: booking.longitude,
+      address: currentBooking.address,
+      latitude: currentBooking.latitude,
+      longitude: currentBooking.longitude,
     });
 
     if (!opened) {
@@ -76,7 +77,7 @@ export function BookingDetailsSheetScreen() {
     }
   }
 
-  async function handlePickReferencePhoto() {
+  async function pickImageForSlot(slotIndex: number) {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (!permission.granted) {
@@ -103,10 +104,33 @@ export function BookingDetailsSheetScreen() {
       return;
     }
 
-    setReferencePhotosById((current) => ({
-      ...current,
-      [booking.id]: selectedPhotoUri,
-    }));
+    setReferencePhotosById((current) => {
+      const next = [
+        ...(current[currentBooking.id] ??
+          currentBooking.referencePhotoUris ??
+          []),
+      ];
+      next[slotIndex] = selectedPhotoUri;
+      return {
+        ...current,
+        [currentBooking.id]: next.slice(0, 3),
+      };
+    });
+  }
+
+  function clearImageFromSlot(slotIndex: number) {
+    setReferencePhotosById((current) => {
+      const next = [
+        ...(current[currentBooking.id] ??
+          currentBooking.referencePhotoUris ??
+          []),
+      ];
+      next[slotIndex] = "";
+      return {
+        ...current,
+        [currentBooking.id]: next,
+      };
+    });
   }
 
   return (
@@ -123,20 +147,20 @@ export function BookingDetailsSheetScreen() {
           style={{ borderCurve: "continuous" }}
         >
           <Text selectable className="text-2xl font-bold text-neutral-900">
-            {booking.serviceName}
+            {currentBooking.serviceName}
           </Text>
 
           <View className="gap-1">
             <Text selectable className="text-sm text-neutral-600">
               Salon:{" "}
               <Text className="font-semibold text-neutral-900">
-                {booking.salonName}
+                {currentBooking.salonName}
               </Text>
             </Text>
             <Text selectable className="text-sm text-neutral-600">
               Stylist:{" "}
               <Text className="font-semibold text-neutral-900">
-                {booking.stylistName}
+                {currentBooking.stylistName}
               </Text>
             </Text>
             <Text selectable className="text-sm text-neutral-600">
@@ -149,13 +173,13 @@ export function BookingDetailsSheetScreen() {
             <Text selectable className="text-sm text-neutral-600">
               Varighed:{" "}
               <Text className="font-semibold text-neutral-900">
-                {formatDurationMinutes(booking.durationMinutes)}
+                {formatDurationMinutes(currentBooking.durationMinutes)}
               </Text>
             </Text>
             <Text selectable className="text-sm text-neutral-600">
               Adresse:{" "}
               <Text className="font-semibold text-neutral-900">
-                {booking.address}
+                {currentBooking.address}
               </Text>
             </Text>
           </View>
@@ -174,9 +198,9 @@ export function BookingDetailsSheetScreen() {
 
           <MapArea
             mode={overviewMapMode}
-            address={booking.address}
-            latitude={booking.latitude}
-            longitude={booking.longitude}
+            address={currentBooking.address}
+            latitude={currentBooking.latitude}
+            longitude={currentBooking.longitude}
           />
 
           <Pressable
@@ -199,58 +223,64 @@ export function BookingDetailsSheetScreen() {
             selectable
             className="text-sm font-semibold uppercase tracking-wide text-neutral-500"
           >
-            Reference
+            Reference billeder
+          </Text>
+          <Text selectable className="text-sm text-neutral-600">
+            Tilføj op til 3 billeder (forfra, side, bagfra).
           </Text>
 
-          {referencePhotoUri ? (
-            <View
-              className="h-60 w-full overflow-hidden rounded-xl border border-neutral-200 bg-neutral-100"
-              style={{ borderCurve: "continuous" }}
-            >
-              <Image
-                source={{ uri: referencePhotoUri }}
-                style={{ height: "100%", width: "100%" }}
-                contentFit="cover"
-              />
-            </View>
-          ) : (
-            <View
-              className="h-40 items-center justify-center rounded-xl border border-dashed border-neutral-300 bg-neutral-100"
-              style={{ borderCurve: "continuous" }}
-            >
-              <Text
-                selectable
-                className="text-xs uppercase tracking-wide text-neutral-400"
-              >
-                Preview
-              </Text>
-              <Text selectable className="text-sm text-neutral-500">
-                Ingen referencefoto endnu.
-              </Text>
-            </View>
-          )}
+          <View className="flex-row gap-2">
+            {referenceSlots.map((label, slotIndex) => {
+              const uri = referencePhotoUris[slotIndex];
 
-          {!isPast ? (
-            <Pressable
-              accessibilityRole="button"
-              onPress={handlePickReferencePhoto}
-              className="items-center rounded-xl border border-blue-200 bg-blue-50 px-4 py-3"
-              style={{ borderCurve: "continuous" }}
-            >
-              <Text selectable className="text-sm font-semibold text-blue-700">
-                {referencePhotoUri ? "Skift foto" : "Tilføj foto"}
-              </Text>
-            </Pressable>
-          ) : (
-            <View
-              className="rounded-xl border border-neutral-200 bg-neutral-100 px-4 py-3"
-              style={{ borderCurve: "continuous" }}
-            >
-              <Text selectable className="text-sm text-neutral-500">
-                Tidligere booking: reference vises kun som læsning.
-              </Text>
-            </View>
-          )}
+              return (
+                <View key={label} className="flex-1 gap-2">
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => pickImageForSlot(slotIndex)}
+                    className="aspect-[3/4] overflow-hidden rounded-xl border border-neutral-200 bg-neutral-100"
+                    style={{ borderCurve: "continuous" }}
+                  >
+                    {uri ? (
+                      <Image
+                        source={{ uri }}
+                        style={{ height: "100%", width: "100%" }}
+                        contentFit="cover"
+                      />
+                    ) : (
+                      <View className="flex-1 items-center justify-center gap-1">
+                        <Ionicons
+                          name="image-outline"
+                          size={22}
+                          color="#9CA3AF"
+                        />
+                        <Text selectable className="text-xs text-neutral-500">
+                          Tilføj
+                        </Text>
+                      </View>
+                    )}
+
+                    {uri ? (
+                      <Pressable
+                        accessibilityRole="button"
+                        onPress={() => clearImageFromSlot(slotIndex)}
+                        className="absolute right-1 top-1 h-6 w-6 items-center justify-center rounded-full bg-black/60"
+                      >
+                        <Ionicons name="close" size={14} color="white" />
+                      </Pressable>
+                    ) : null}
+                  </Pressable>
+
+                  <Text
+                    selectable
+                    className="text-center text-xs font-medium text-neutral-500"
+                  >
+                    {label}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
         </View>
       </ScrollView>
     </>
