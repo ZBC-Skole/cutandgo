@@ -17,11 +17,11 @@ export function ServiceCategoryPanel({
   onSelectService,
 }: ServiceCategoryPanelProps) {
   return (
-    <View className="overflow-hidden rounded-2xl border border-neutral-200 bg-white">
+    <View className="overflow-hidden rounded-2xl">
       <Pressable
         accessibilityRole="button"
         onPress={onToggle}
-        className="flex-row items-center justify-between px-4 py-3"
+        className="flex-row items-center justify-between p-3"
       >
         <View>
           <Text selectable className="text-base font-semibold text-neutral-900">
