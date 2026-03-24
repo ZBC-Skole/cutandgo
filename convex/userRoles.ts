@@ -22,8 +22,8 @@ export const getMyRole = query({
 
     const roleDoc = await ctx.db
       .query("userRoles")
-      .filter((q) => q.eq(q.field("authUserId"), authUser._id))
-      .first();
+      .withIndex("by_auth_user_id", (q) => q.eq("authUserId", authUser._id))
+      .unique();
 
     if (!roleDoc) {
       return "kunde" as AppRole;
@@ -42,8 +42,8 @@ export const setRoleForUser = mutation({
   handler: async (ctx, args) => {
     const existing = await ctx.db
       .query("userRoles")
-      .filter((q) => q.eq(q.field("authUserId"), args.authUserId))
-      .first();
+      .withIndex("by_auth_user_id", (q) => q.eq("authUserId", args.authUserId))
+      .unique();
 
     if (existing) {
       await ctx.db.patch(existing._id, { role: args.role, updatedAt: Date.now() });
