@@ -238,7 +238,7 @@ export function BookingDetailsSheetScreen() {
                   <Pressable
                     accessibilityRole="button"
                     onPress={() => pickImageForSlot(slotIndex)}
-                    className="aspect-[3/4] overflow-hidden rounded-xl border border-neutral-200 bg-neutral-100"
+                    className="aspect-3/4 overflow-hidden rounded-xl border border-neutral-200 bg-neutral-100"
                     style={{ borderCurve: "continuous" }}
                   >
                     {uri ? (

@@ -1,21 +1,5 @@
-import { ScrollView, Text, View } from "react-native";
+import { SettingsScreen } from "@/features/settings/screens/settings-screen";
 
-export default function SettingsScreen() {
-  return (
-    <ScrollView contentInsetAdjustmentBehavior="automatic" className="flex-1">
-      <View className="gap-3 p-4">
-        <View
-          className="gap-2 rounded-2xl bg-white p-4 shadow-sm"
-          style={{ borderCurve: "continuous" }}
-        >
-          <Text selectable className="text-2xl font-bold">
-            Indstillinger
-          </Text>
-          <Text selectable className="text-base leading-6 text-gray-700">
-            Tilpas appens opsætning, præferencer og notifikationer her.
-          </Text>
-        </View>
-      </View>
-    </ScrollView>
-  );
+export default function SettingsIndexRoute() {
+  return <SettingsScreen />;
 }
