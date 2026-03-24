@@ -1,3 +1,4 @@
+import { useRole } from "@/hooks/use-role";
 import { authClient } from "@/lib/auth-client";
 import { Ionicons } from "@expo/vector-icons";
 import Constants from "expo-constants";
@@ -88,6 +89,7 @@ function SettingsRow({
 
 export function SettingsScreen() {
   const sessionState = authClient.useSession();
+  const role = useRole();
   const [isSigningOut, setIsSigningOut] = useState(false);
 
   const sessionData = useMemo(
@@ -178,7 +180,49 @@ export function SettingsScreen() {
               {displayEmail}
             </Text>
           </View>
+
+          <View
+            className={`rounded-full px-3 py-1 ${
+              role.isAdmin ? "bg-amber-100" : "bg-neutral-100"
+            }`}
+            style={{ borderCurve: "continuous" }}
+          >
+            <Text
+              selectable
+              className={`text-xs font-semibold uppercase tracking-wide ${
+                role.isAdmin ? "text-amber-800" : "text-neutral-600"
+              }`}
+            >
+              {role.primaryRole ?? "ingen rolle"}
+            </Text>
+          </View>
         </View>
+      </View>
+
+      <View
+        className={`gap-2 rounded-2xl p-4 ${
+          role.isAdmin ? "bg-amber-50" : "bg-blue-50"
+        }`}
+        style={{ borderCurve: "continuous" }}
+      >
+        <Text
+          selectable
+          className={`text-xs font-semibold uppercase tracking-wide ${
+            role.isAdmin ? "text-amber-700" : "text-blue-700"
+          }`}
+        >
+          Rolle UI
+        </Text>
+        <Text
+          selectable
+          className={`text-sm ${
+            role.isAdmin ? "text-amber-900" : "text-blue-900"
+          }`}
+        >
+          {role.isAdmin
+            ? "Admin mode aktiv: vis admin-værktøjer, rapporter og udvidet kontrol."
+            : "Standard mode aktiv: vis kunde/medarbejder flow uden admin-værktøjer."}
+        </Text>
       </View>
 
       <View
