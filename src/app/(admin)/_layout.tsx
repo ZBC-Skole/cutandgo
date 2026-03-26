@@ -5,7 +5,11 @@ export default function AdminLayout() {
     <Stack screenOptions={{ headerBackButtonDisplayMode: "minimal" }}>
       <Stack.Screen
         name="index"
-        options={{ title: "Admin", headerLargeTitleEnabled: true }}
+        options={{ title: "Statistik", headerLargeTitleEnabled: true }}
+      />
+      <Stack.Screen
+        name="employees"
+        options={{ title: "Medarbejder", headerLargeTitleEnabled: true }}
       />
     </Stack>
   );

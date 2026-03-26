@@ -1,4 +1,6 @@
 import { v } from "convex/values";
+import type { Id } from "./_generated/dataModel";
+import type { MutationCtx } from "./_generated/server";
 import { mutation, query } from "./_generated/server";
 import { requireAppRole } from "./lib/authz";
 
@@ -6,7 +8,12 @@ function toRadians(value: number) {
   return (value * Math.PI) / 180;
 }
 
-function distanceInKm(fromLat: number, fromLng: number, toLat: number, toLng: number) {
+function distanceInKm(
+  fromLat: number,
+  fromLng: number,
+  toLat: number,
+  toLng: number,
+) {
   const earthRadiusKm = 6371;
   const deltaLat = toRadians(toLat - fromLat);
   const deltaLng = toRadians(toLng - fromLng);
@@ -18,6 +25,86 @@ function distanceInKm(fromLat: number, fromLng: number, toLat: number, toLng: nu
       Math.sin(deltaLng / 2);
 
   return earthRadiusKm * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+}
+
+const openingHourEntryValidator = v.object({
+  weekday: v.number(),
+  opensAt: v.string(),
+  closesAt: v.string(),
+  isClosed: v.optional(v.boolean()),
+});
+
+type OpeningHourEntry = {
+  weekday: number;
+  opensAt: string;
+  closesAt: string;
+  isClosed?: boolean;
+};
+
+type SalonRecordInput = {
+  name: string;
+  slug: string;
+  addressLine1: string;
+  addressLine2?: string;
+  postalCode: string;
+  city: string;
+  countryCode: string;
+  latitude: number;
+  longitude: number;
+  phone?: string;
+  email?: string;
+};
+
+async function ensureSlugAvailable(ctx: MutationCtx, slug: string) {
+  const matches = await ctx.db
+    .query("salons")
+    .withIndex("by_slug", (q) => q.eq("slug", slug))
+    .collect();
+  if (matches.length > 0) {
+    throw new Error("Slug er allerede i brug.");
+  }
+}
+
+async function insertSalonRecord(ctx: MutationCtx, args: SalonRecordInput) {
+  await ensureSlugAvailable(ctx, args.slug);
+
+  const now = Date.now();
+  return await ctx.db.insert("salons", {
+    ...args,
+    isActive: true,
+    createdAt: now,
+    updatedAt: now,
+  });
+}
+
+async function saveOpeningHours(
+  ctx: MutationCtx,
+  salonId: Id<"salons">,
+  entries: OpeningHourEntry[],
+) {
+  const existing = await ctx.db
+    .query("salonOpeningHours")
+    .withIndex("by_salon", (q) => q.eq("salonId", salonId))
+    .collect();
+
+  for (const row of existing) {
+    await ctx.db.delete(row._id);
+  }
+
+  const now = Date.now();
+  for (const entry of entries) {
+    if (entry.weekday < 0 || entry.weekday > 6) {
+      throw new Error("weekday skal være mellem 0 og 6.");
+    }
+    await ctx.db.insert("salonOpeningHours", {
+      salonId,
+      weekday: entry.weekday,
+      opensAt: entry.opensAt,
+      closesAt: entry.closesAt,
+      isClosed: entry.isClosed ?? false,
+      updatedAt: now,
+    });
+  }
 }
 
 export const listActive = query({
@@ -66,9 +153,19 @@ export const findNearest = query({
     }
 
     let nearest = salons[0];
-    let nearestDistance = distanceInKm(args.latitude, args.longitude, nearest.latitude, nearest.longitude);
+    let nearestDistance = distanceInKm(
+      args.latitude,
+      args.longitude,
+      nearest.latitude,
+      nearest.longitude,
+    );
     for (const salon of salons.slice(1)) {
-      const distance = distanceInKm(args.latitude, args.longitude, salon.latitude, salon.longitude);
+      const distance = distanceInKm(
+        args.latitude,
+        args.longitude,
+        salon.latitude,
+        salon.longitude,
+      );
       if (distance < nearestDistance) {
         nearest = salon;
         nearestDistance = distance;
@@ -98,57 +195,44 @@ export const create = mutation({
   },
   handler: async (ctx, args) => {
     await requireAppRole(ctx, ["admin"]);
-
-    const now = Date.now();
-    return await ctx.db.insert("salons", {
-      ...args,
-      isActive: true,
-      createdAt: now,
-      updatedAt: now,
-    });
+    return await insertSalonRecord(ctx, args);
   },
 });
 
 export const setOpeningHours = mutation({
   args: {
     salonId: v.id("salons"),
-    entries: v.array(
-      v.object({
-        weekday: v.number(),
-        opensAt: v.string(),
-        closesAt: v.string(),
-        isClosed: v.optional(v.boolean()),
-      }),
-    ),
+    entries: v.array(openingHourEntryValidator),
   },
   handler: async (ctx, args) => {
     await requireAppRole(ctx, ["admin"]);
-
-    const existing = await ctx.db
-      .query("salonOpeningHours")
-      .withIndex("by_salon", (q) => q.eq("salonId", args.salonId))
-      .collect();
-
-    for (const row of existing) {
-      await ctx.db.delete(row._id);
-    }
-
-    const now = Date.now();
-    for (const entry of args.entries) {
-      if (entry.weekday < 0 || entry.weekday > 6) {
-        throw new Error("weekday skal være mellem 0 og 6.");
-      }
-      await ctx.db.insert("salonOpeningHours", {
-        salonId: args.salonId,
-        weekday: entry.weekday,
-        opensAt: entry.opensAt,
-        closesAt: entry.closesAt,
-        isClosed: entry.isClosed ?? false,
-        updatedAt: now,
-      });
-    }
-
+    await saveOpeningHours(ctx, args.salonId, args.entries);
     return { success: true };
   },
 });
 
+export const createWithOpeningHours = mutation({
+  args: {
+    salon: v.object({
+      name: v.string(),
+      slug: v.string(),
+      addressLine1: v.string(),
+      addressLine2: v.optional(v.string()),
+      postalCode: v.string(),
+      city: v.string(),
+      countryCode: v.string(),
+      latitude: v.number(),
+      longitude: v.number(),
+      phone: v.optional(v.string()),
+      email: v.optional(v.string()),
+    }),
+    openingHours: v.array(openingHourEntryValidator),
+  },
+  handler: async (ctx, args) => {
+    await requireAppRole(ctx, ["admin"]);
+
+    const salonId = await insertSalonRecord(ctx, args.salon);
+    await saveOpeningHours(ctx, salonId, args.openingHours);
+    return salonId;
+  },
+});

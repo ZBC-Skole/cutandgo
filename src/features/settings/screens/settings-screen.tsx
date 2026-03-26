@@ -260,10 +260,10 @@ export function SettingsScreen() {
               Admin
             </Text>
             <SettingsRow
-              title="Åbn admin panel"
-              subtitle="Saloner, ansatte, services og tider"
-              iconName="construct-outline"
-              onPress={() => router.push("/admin")}
+              title="Admin indstillinger"
+              subtitle="Opret ny salon i indstillinger"
+              iconName="business-outline"
+              onPress={() => router.push("/(settings)/admin")}
             />
             <SettingsRow
               title={

@@ -1,10 +1,10 @@
 import { RoleGuard } from "@/components/ui/role-guard";
-import { AdminScreen } from "@/features/admin/screens/admin-screen";
+import { AdminSalonSettingsScreen } from "@/features/admin/screens/admin-salon-settings-screen";
 
 export default function AdminRoute() {
   return (
     <RoleGuard allow={["admin"]} fallbackHref="/">
-      <AdminScreen />
+      <AdminSalonSettingsScreen />
     </RoleGuard>
   );
 }

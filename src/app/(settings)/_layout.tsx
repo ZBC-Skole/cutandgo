@@ -9,7 +9,7 @@ export default function SettingsLayout() {
       />
       <Stack.Screen
         name="admin"
-        options={{ title: "Admin", headerLargeTitleEnabled: true }}
+        options={{ title: "Saloner", headerLargeTitleEnabled: true }}
       />
     </Stack>
   );

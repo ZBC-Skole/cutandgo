@@ -17,7 +17,11 @@ export function RootTabs() {
         <Tabs>
           <Tabs.Screen
             name="(admin)"
-            options={{ title: "Admin", headerShown: false }}
+            options={{ title: "Statistik", headerShown: false }}
+          />
+          <Tabs.Screen
+            name="employees"
+            options={{ title: "Medarbejdere", headerShown: false }}
           />
           <Tabs.Screen
             name="(settings)"
@@ -50,10 +54,18 @@ export function RootTabs() {
       <NativeTabs>
         <NativeTabs.Trigger name="(admin)">
           <NativeTabs.Trigger.Icon
-            sf={{ default: "person.3", selected: "person.3.fill" }}
-            md="admin_panel_settings"
+            sf={{ default: "chart.bar", selected: "chart.bar.fill" }}
+            md="bar_chart"
           />
-          <NativeTabs.Trigger.Label>Admin</NativeTabs.Trigger.Label>
+          <NativeTabs.Trigger.Label>Statistik</NativeTabs.Trigger.Label>
+        </NativeTabs.Trigger>
+
+        <NativeTabs.Trigger name="employees">
+          <NativeTabs.Trigger.Icon
+            sf={{ default: "person.2", selected: "person.2.fill" }}
+            md="groups"
+          />
+          <NativeTabs.Trigger.Label>Medarbejdere</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
 
         <NativeTabs.Trigger name="(settings)">

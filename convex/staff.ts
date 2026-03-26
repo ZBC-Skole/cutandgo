@@ -1,6 +1,11 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { getEmployeeByAuthUserId, requireAppRole, requireAuthUser, requireSalonAccess } from "./lib/authz";
+import {
+  getEmployeeByAuthUserId,
+  requireAppRole,
+  requireAuthUser,
+  requireSalonAccess,
+} from "./lib/authz";
 
 const activeBookingStatuses = new Set(["booked", "confirmed"]);
 
@@ -35,7 +40,89 @@ export const listEmployees = query({
   args: {},
   handler: async (ctx) => {
     const employees = await ctx.db.query("employees").collect();
-    return employees.sort((a, b) => a.fullName.localeCompare(b.fullName, "da-DK"));
+    return employees.sort((a, b) =>
+      a.fullName.localeCompare(b.fullName, "da-DK"),
+    );
+  },
+});
+
+export const listEmployeesWithAssignments = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireAppRole(ctx, ["admin"]);
+
+    const employees = await ctx.db.query("employees").collect();
+    const assignments = await ctx.db.query("employeeSalonRoles").collect();
+    const salons = await ctx.db
+      .query("salons")
+      .withIndex("by_is_active", (q) => q.eq("isActive", true))
+      .collect();
+
+    const salonById = new Map(salons.map((salon) => [salon._id, salon]));
+
+    return employees
+      .map((employee) => {
+        const employeeAssignments = assignments
+          .filter((assignment) => assignment.employeeId === employee._id)
+          .map((assignment) => ({
+            ...assignment,
+            salonName:
+              salonById.get(assignment.salonId)?.name ?? "Ukendt salon",
+            salonCity: salonById.get(assignment.salonId)?.city ?? null,
+          }))
+          .sort((a, b) => a.salonName.localeCompare(b.salonName, "da-DK"));
+
+        return {
+          ...employee,
+          assignments: employeeAssignments,
+          activeSalonCount: employeeAssignments.filter((item) => item.isActive)
+            .length,
+        };
+      })
+      .sort((a, b) => a.fullName.localeCompare(b.fullName, "da-DK"));
+  },
+});
+
+export const getEmployeeAdminDetail = query({
+  args: {
+    employeeId: v.id("employees"),
+  },
+  handler: async (ctx, args) => {
+    await requireAppRole(ctx, ["admin"]);
+
+    const employee = await ctx.db.get(args.employeeId);
+    if (!employee) {
+      return null;
+    }
+
+    const assignments = await ctx.db
+      .query("employeeSalonRoles")
+      .withIndex("by_employee", (q) => q.eq("employeeId", args.employeeId))
+      .collect();
+
+    const salons = await ctx.db
+      .query("salons")
+      .withIndex("by_is_active", (q) => q.eq("isActive", true))
+      .collect();
+    const salonById = new Map(salons.map((salon) => [salon._id, salon]));
+
+    const workingHours = await ctx.db
+      .query("employeeWorkingHours")
+      .withIndex("by_employee", (q) => q.eq("employeeId", args.employeeId))
+      .collect();
+
+    return {
+      employee,
+      assignments: assignments
+        .map((assignment) => ({
+          ...assignment,
+          salonName: salonById.get(assignment.salonId)?.name ?? "Ukendt salon",
+          workingHours: workingHours
+            .filter((row) => row.salonId === assignment.salonId)
+            .sort((a, b) => a.weekday - b.weekday),
+        }))
+        .sort((a, b) => a.salonName.localeCompare(b.salonName, "da-DK")),
+    };
   },
 });
 
@@ -44,7 +131,12 @@ export const listSalonEmployees = query({
     salonId: v.id("salons"),
   },
   handler: async (ctx, args) => {
-    await requireSalonAccess(ctx, args.salonId, ["owner", "manager", "stylist", "assistant"]);
+    await requireSalonAccess(ctx, args.salonId, [
+      "owner",
+      "manager",
+      "stylist",
+      "assistant",
+    ]);
 
     const assignments = await ctx.db
       .query("employeeSalonRoles")
@@ -72,7 +164,12 @@ export const getWorkingHours = query({
     salonId: v.id("salons"),
   },
   handler: async (ctx, args) => {
-    await requireSalonAccess(ctx, args.salonId, ["owner", "manager", "stylist", "assistant"]);
+    await requireSalonAccess(ctx, args.salonId, [
+      "owner",
+      "manager",
+      "stylist",
+      "assistant",
+    ]);
 
     const rows = await ctx.db
       .query("employeeWorkingHours")
@@ -89,7 +186,12 @@ export const assignEmployeeToSalon = mutation({
   args: {
     employeeId: v.id("employees"),
     salonId: v.id("salons"),
-    role: v.union(v.literal("owner"), v.literal("manager"), v.literal("stylist"), v.literal("assistant")),
+    role: v.union(
+      v.literal("owner"),
+      v.literal("manager"),
+      v.literal("stylist"),
+      v.literal("assistant"),
+    ),
     canManageSchedule: v.optional(v.boolean()),
     canManageProducts: v.optional(v.boolean()),
   },
@@ -98,7 +200,9 @@ export const assignEmployeeToSalon = mutation({
 
     const existing = await ctx.db
       .query("employeeSalonRoles")
-      .withIndex("by_salon_employee", (q) => q.eq("salonId", args.salonId).eq("employeeId", args.employeeId))
+      .withIndex("by_salon_employee", (q) =>
+        q.eq("salonId", args.salonId).eq("employeeId", args.employeeId),
+      )
       .unique();
 
     const now = Date.now();
@@ -118,13 +222,47 @@ export const assignEmployeeToSalon = mutation({
       salonId: args.salonId,
       role: args.role,
       canManageSchedule:
-        args.canManageSchedule ?? (args.role === "owner" || args.role === "manager"),
+        args.canManageSchedule ??
+        (args.role === "owner" || args.role === "manager"),
       canManageProducts:
-        args.canManageProducts ?? (args.role === "owner" || args.role === "manager"),
+        args.canManageProducts ??
+        (args.role === "owner" || args.role === "manager"),
       isActive: true,
       hiredAt: now,
       updatedAt: now,
     });
+  },
+});
+
+export const updateEmployee = mutation({
+  args: {
+    employeeId: v.id("employees"),
+    fullName: v.string(),
+    phone: v.optional(v.string()),
+    email: v.optional(v.string()),
+    title: v.optional(v.string()),
+    bio: v.optional(v.string()),
+    isActive: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    await requireAppRole(ctx, ["admin"]);
+
+    const existing = await ctx.db.get(args.employeeId);
+    if (!existing) {
+      throw new Error("Medarbejderen findes ikke.");
+    }
+
+    await ctx.db.patch(args.employeeId, {
+      fullName: args.fullName,
+      phone: args.phone,
+      email: args.email,
+      title: args.title,
+      bio: args.bio,
+      isActive: args.isActive,
+      updatedAt: Date.now(),
+    });
+
+    return args.employeeId;
   },
 });
 
@@ -190,7 +328,9 @@ export const getMyNextCustomer = query({
     const fromTs = args.fromTs ?? Date.now();
     const bookings = await ctx.db
       .query("bookings")
-      .withIndex("by_employee_start", (q) => q.eq("employeeId", employee._id).gte("startAt", fromTs))
+      .withIndex("by_employee_start", (q) =>
+        q.eq("employeeId", employee._id).gte("startAt", fromTs),
+      )
       .collect();
 
     const next = bookings
@@ -219,7 +359,10 @@ export const getEmployeeBookings = query({
     const bookings = await ctx.db
       .query("bookings")
       .withIndex("by_employee_start", (q) =>
-        q.eq("employeeId", args.employeeId).gte("startAt", args.fromTs).lt("startAt", args.toTs),
+        q
+          .eq("employeeId", args.employeeId)
+          .gte("startAt", args.fromTs)
+          .lt("startAt", args.toTs),
       )
       .collect();
     return bookings.sort((a, b) => a.startAt - b.startAt);
@@ -253,7 +396,10 @@ export const registerSickLeaveAndAutoCancel = mutation({
     const bookings = await ctx.db
       .query("bookings")
       .withIndex("by_employee_start", (q) =>
-        q.eq("employeeId", args.employeeId).gte("startAt", args.startAt).lt("startAt", args.endAt),
+        q
+          .eq("employeeId", args.employeeId)
+          .gte("startAt", args.startAt)
+          .lt("startAt", args.endAt),
       )
       .collect();
 
