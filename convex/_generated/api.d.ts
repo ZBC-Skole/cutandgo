@@ -19,6 +19,7 @@ import type * as salons from "../salons.js";
 import type * as services from "../services.js";
 import type * as staff from "../staff.js";
 import type * as tasks from "../tasks.js";
+import type * as userProfiles from "../userProfiles.js";
 import type * as userRoles from "../userRoles.js";
 
 import type {
@@ -39,6 +40,7 @@ declare const fullApi: ApiFromModules<{
   services: typeof services;
   staff: typeof staff;
   tasks: typeof tasks;
+  userProfiles: typeof userProfiles;
   userRoles: typeof userRoles;
 }>;
 

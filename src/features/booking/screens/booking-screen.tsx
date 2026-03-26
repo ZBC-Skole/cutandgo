@@ -1,64 +1,158 @@
+import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
+import LoadingView from "@/components/ui/loading-view";
 import { BookingOptionChip } from "@/features/booking/components/booking-option-chip";
 import { ServiceCategoryPanel } from "@/features/booking/components/service-category-panel";
-import {
-  salons,
-  serviceCategories,
-  stylists,
-} from "@/features/booking/data/demo-booking-data";
 import {
   formatBookingDateTime,
   formatDatePill,
   fromDateKey,
   getTimeFromDate,
-  mergeDateAndTime,
   toDateKey,
 } from "@/features/booking/lib/date-time";
-import {
-  confirmationTextAtom,
-  isTimesOpenAtom,
-  openCategoryIdAtom,
-  selectedDateKeyAtom,
-  selectedDateTimeAtom,
-  selectedSalonIdAtom,
-  selectedServiceAtom,
-  selectedStylistIdAtom,
-} from "@/features/booking/state/booking-atoms";
-import {
-  getEndTime,
-  parseTimeToMinutes,
-} from "@/features/booking/utils/time-slots";
-import { useAtom } from "jotai";
-import { useMemo } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { useMutation, useQuery } from "convex/react";
+import { useEffect, useMemo, useState } from "react";
+import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
+
+type SelectedSalonId = Id<"salons"> | null;
+type SelectedStylistId = Id<"employees"> | null;
 
 export function BookingScreen() {
-  const [selectedSalonId, setSelectedSalonId] = useAtom(selectedSalonIdAtom);
-  const [selectedService, setSelectedService] = useAtom(selectedServiceAtom);
-  const [selectedStylistId, setSelectedStylistId] = useAtom(
-    selectedStylistIdAtom,
+  const salonsQuery = useQuery(api.salons.listActive);
+  const profile = useQuery(api.userProfiles.getMyProfile);
+  const [selectedSalonId, setSelectedSalonId] = useState<SelectedSalonId>(null);
+  const [selectedServiceId, setSelectedServiceId] =
+    useState<Id<"services"> | null>(null);
+  const [selectedStylistId, setSelectedStylistId] =
+    useState<SelectedStylistId>(null);
+  const [selectedDateKey, setSelectedDateKey] = useState(toDateKey(new Date()));
+  const [selectedSlotStartAt, setSelectedSlotStartAt] = useState<number | null>(
+    null,
   );
-  const [selectedDateKey, setSelectedDateKey] = useAtom(selectedDateKeyAtom);
-  const [selectedDateTime, setSelectedDateTime] = useAtom(selectedDateTimeAtom);
-  const [openCategoryId, setOpenCategoryId] = useAtom(openCategoryIdAtom);
-  const [isTimesOpen, setIsTimesOpen] = useAtom(isTimesOpenAtom);
-  const [confirmationText, setConfirmationText] = useAtom(confirmationTextAtom);
+  const [openCategoryId, setOpenCategoryId] = useState("");
+  const [isTimesOpen, setIsTimesOpen] = useState(true);
+  const [confirmationText, setConfirmationText] = useState<string | null>(null);
+  const [customerNote, setCustomerNote] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const createBooking = useMutation(api.bookings.createBooking);
+  const setPreferredSalon = useMutation(api.userProfiles.setMyPreferredSalon);
+
+  const salons = useMemo(() => salonsQuery ?? [], [salonsQuery]);
+
+  useEffect(() => {
+    if (salons.length === 0) {
+      setSelectedSalonId(null);
+      return;
+    }
+
+    setSelectedSalonId((current) => {
+      if (current && salons.some((salon) => salon._id === current)) {
+        return current;
+      }
+
+      const preferredSalonId = profile?.preferredSalonId;
+      if (
+        preferredSalonId &&
+        salons.some((salon) => salon._id === preferredSalonId)
+      ) {
+        return preferredSalonId;
+      }
+
+      return salons[0]._id;
+    });
+  }, [profile?.preferredSalonId, salons]);
+
+  const categoriesQuery = useQuery(
+    api.services.listBySalon,
+    selectedSalonId ? { salonId: selectedSalonId, activeOnly: true } : "skip",
+  );
+  const stylistsQuery = useQuery(
+    api.staff.listPublicSalonEmployees,
+    selectedSalonId ? { salonId: selectedSalonId } : "skip",
+  );
+
+  const categories = useMemo(
+    () =>
+      (categoriesQuery ?? []).map((category) => ({
+        id: category._id,
+        name: category.name,
+        services: category.services.map((service) => ({
+          id: service._id,
+          name: service.name,
+          durationMinutes: service.durationMinutes,
+          priceDkk: service.priceDkk,
+        })),
+      })),
+    [categoriesQuery],
+  );
+
+  const stylists = useMemo(
+    () =>
+      (stylistsQuery ?? []).map((stylist) => ({
+        id: stylist._id,
+        name: stylist.fullName,
+        role: stylist.title,
+      })),
+    [stylistsQuery],
+  );
+
+  useEffect(() => {
+    if (categories.length === 0) {
+      setOpenCategoryId("");
+      setSelectedServiceId(null);
+      return;
+    }
+
+    setOpenCategoryId((current) =>
+      current && categories.some((category) => category.id === current)
+        ? current
+        : categories[0].id,
+    );
+    setSelectedServiceId((current) =>
+      current &&
+      categories.some((category) =>
+        category.services.some((service) => service.id === current),
+      )
+        ? current
+        : null,
+    );
+  }, [categories]);
+
+  useEffect(() => {
+    if (stylists.length === 0) {
+      setSelectedStylistId(null);
+      return;
+    }
+
+    setSelectedStylistId((current) =>
+      current && stylists.some((stylist) => stylist.id === current)
+        ? current
+        : stylists[0].id,
+    );
+  }, [stylists]);
 
   const selectedSalon = useMemo(
-    () => salons.find((salon) => salon.id === selectedSalonId) ?? null,
-    [selectedSalonId],
+    () => salons.find((salon) => salon._id === selectedSalonId) ?? null,
+    [salons, selectedSalonId],
   );
 
-  const availableStylists = useMemo(
-    () =>
-      stylists.filter((stylist) => stylist.salonIds.includes(selectedSalonId)),
-    [selectedSalonId],
-  );
+  const selectedService = useMemo(() => {
+    for (const category of categories) {
+      const found = category.services.find(
+        (service) => service.id === selectedServiceId,
+      );
+      if (found) {
+        return found;
+      }
+    }
+
+    return null;
+  }, [categories, selectedServiceId]);
 
   const selectedStylist = useMemo(
-    () =>
-      availableStylists.find((stylist) => stylist.id === selectedStylistId) ??
-      null,
-    [availableStylists, selectedStylistId],
+    () => stylists.find((stylist) => stylist.id === selectedStylistId) ?? null,
+    [selectedStylistId, stylists],
   );
 
   const dateOptions = useMemo(() => {
@@ -70,194 +164,148 @@ export function BookingScreen() {
     });
   }, []);
 
-  const predefinedStartTimes = useMemo(() => {
-    if (!selectedService || !selectedStylist) {
-      return [];
-    }
+  const selectedDate = useMemo(
+    () => fromDateKey(selectedDateKey),
+    [selectedDateKey],
+  );
+  const selectedDayStartTs = useMemo(() => {
+    const day = new Date(selectedDate);
+    day.setHours(0, 0, 0, 0);
+    return day.getTime();
+  }, [selectedDate]);
 
-    const openMinutes = parseTimeToMinutes(selectedStylist.workingHours.start);
-    const closeMinutes = parseTimeToMinutes(selectedStylist.workingHours.end);
-
-    const slots: string[] = [];
-
-    for (
-      let startMinutes = openMinutes;
-      startMinutes + selectedService.durationMinutes <= closeMinutes;
-      startMinutes += 15
-    ) {
-      const endMinutes = startMinutes + selectedService.durationMinutes;
-
-      const overlapsBlocked = selectedStylist.blocked.some((interval) => {
-        const blockedStart = parseTimeToMinutes(interval.start);
-        const blockedEnd = parseTimeToMinutes(interval.end);
-        return startMinutes < blockedEnd && endMinutes > blockedStart;
-      });
-
-      if (!overlapsBlocked) {
-        const hours = String(Math.floor(startMinutes / 60)).padStart(2, "0");
-        const minutes = String(startMinutes % 60).padStart(2, "0");
-        slots.push(`${hours}:${minutes}`);
-      }
-    }
-
-    return slots;
-  }, [selectedService, selectedStylist]);
+  const slots = useQuery(
+    api.bookings.listAvailableSlotsForSalon,
+    selectedSalonId && selectedService && selectedStylistId
+      ? {
+          salonId: selectedSalonId,
+          serviceId: selectedService.id,
+          employeeId: selectedStylistId,
+          dayStartTs: selectedDayStartTs,
+          dayEndTs: selectedDayStartTs + 24 * 60 * 60 * 1000,
+        }
+      : "skip",
+  );
 
   const predefinedStartTimesForSelectedDate = useMemo(() => {
-    if (!selectedService || !selectedStylist) {
-      return [];
-    }
+    const now = Date.now();
+    return (slots ?? []).filter((slot) => slot.startAt > now);
+  }, [slots]);
 
-    const selectedDate = fromDateKey(selectedDateKey);
-    const now = new Date();
-
-    return predefinedStartTimes.filter((time) => {
-      const candidateDateTime = mergeDateAndTime(selectedDate, time);
-      return candidateDateTime.getTime() > now.getTime();
-    });
-  }, [predefinedStartTimes, selectedDateKey, selectedService, selectedStylist]);
+  const selectedSlot = useMemo(
+    () =>
+      predefinedStartTimesForSelectedDate.find(
+        (slot) => slot.startAt === selectedSlotStartAt,
+      ) ?? null,
+    [predefinedStartTimesForSelectedDate, selectedSlotStartAt],
+  );
 
   const bookingValidation = useMemo(() => {
-    if (!selectedService || !selectedStylist || !selectedDateTime) {
+    if (
+      !selectedSalon ||
+      !selectedService ||
+      !selectedStylist ||
+      !selectedSlot
+    ) {
       return {
         isValid: false,
-        reason: "Vælg service, stylist, dato og tidspunkt.",
+        reason: "Vælg salon, behandling, medarbejder, dato og tidspunkt.",
         endTime: null as string | null,
-      };
-    }
-
-    const now = new Date();
-    if (selectedDateTime.getTime() < now.getTime()) {
-      return {
-        isValid: false,
-        reason: "Du kan ikke vælge et tidspunkt i fortiden.",
-        endTime: null,
-      };
-    }
-
-    const selectedTime = getTimeFromDate(selectedDateTime);
-    const startMinutes = parseTimeToMinutes(selectedTime);
-    const endMinutes = startMinutes + selectedService.durationMinutes;
-    const stylistStartMinutes = parseTimeToMinutes(
-      selectedStylist.workingHours.start,
-    );
-    const stylistEndMinutes = parseTimeToMinutes(
-      selectedStylist.workingHours.end,
-    );
-
-    if (startMinutes < stylistStartMinutes || endMinutes > stylistEndMinutes) {
-      return {
-        isValid: false,
-        reason: `Tidspunktet ligger uden for ${selectedStylist.name}s arbejdstid (${selectedStylist.workingHours.start}-${selectedStylist.workingHours.end}).`,
-        endTime: null,
-      };
-    }
-
-    const overlapsBlocked = selectedStylist.blocked.some((interval) => {
-      const blockedStart = parseTimeToMinutes(interval.start);
-      const blockedEnd = parseTimeToMinutes(interval.end);
-      return startMinutes < blockedEnd && endMinutes > blockedStart;
-    });
-
-    if (overlapsBlocked) {
-      return {
-        isValid: false,
-        reason: "Tiden overlapper med en eksisterende booking/pause.",
-        endTime: null,
       };
     }
 
     return {
       isValid: true,
       reason: null,
-      endTime: getEndTime(selectedTime, selectedService.durationMinutes),
+      endTime: getTimeFromDate(new Date(selectedSlot.endAt)),
     };
-  }, [selectedDateTime, selectedService, selectedStylist]);
+  }, [selectedSalon, selectedService, selectedSlot, selectedStylist]);
 
-  const isBookingReady =
-    Boolean(selectedSalon) &&
-    Boolean(selectedService) &&
-    Boolean(selectedStylist) &&
-    Boolean(selectedDateTime) &&
-    bookingValidation.isValid;
+  const isBookingReady = bookingValidation.isValid;
 
-  function handleSelectService(service: NonNullable<typeof selectedService>) {
-    setSelectedService(service);
-    setSelectedDateTime(null);
+  function handleSelectService(service: {
+    id: string;
+    name: string;
+    durationMinutes: number;
+    priceDkk: number;
+  }) {
+    setSelectedServiceId(service.id as Id<"services">);
+    setSelectedSlotStartAt(null);
     setConfirmationText(null);
   }
 
-  function handleSelectSalon(salonId: string) {
+  function handleSelectSalon(salonId: Id<"salons">) {
     setSelectedSalonId(salonId);
-
-    const nextStylists = stylists.filter((stylist) =>
-      stylist.salonIds.includes(salonId),
-    );
-    setSelectedStylistId(nextStylists[0]?.id ?? null);
-
-    setSelectedDateTime(null);
+    setSelectedServiceId(null);
+    setSelectedStylistId(null);
+    setSelectedSlotStartAt(null);
     setConfirmationText(null);
   }
 
-  function handleSelectStylist(stylistId: string) {
+  function handleSelectStylist(stylistId: Id<"employees">) {
     setSelectedStylistId(stylistId);
-    setSelectedDateTime(null);
+    setSelectedSlotStartAt(null);
     setConfirmationText(null);
   }
 
   function handleSelectDate(dateKey: string) {
     setSelectedDateKey(dateKey);
-    setSelectedDateTime(null);
+    setSelectedSlotStartAt(null);
     setIsTimesOpen(true);
     setConfirmationText(null);
   }
 
-  function handleSelectTime(time: string) {
-    const selectedDate = fromDateKey(selectedDateKey);
-    const nextDateTime = mergeDateAndTime(selectedDate, time);
-    setSelectedDateTime(nextDateTime);
+  function handleSelectTime(startAt: number) {
+    setSelectedSlotStartAt(startAt);
     setConfirmationText(null);
   }
 
   function handleAutoSelectNextAvailable() {
-    if (!selectedService || !selectedStylist) {
+    const nextSlot = predefinedStartTimesForSelectedDate[0];
+    if (!nextSlot) {
       return;
     }
 
-    const now = new Date();
-
-    for (const dateOption of dateOptions) {
-      const date = fromDateKey(dateOption.key);
-      const nextTime = predefinedStartTimes.find((time) => {
-        const candidateDateTime = mergeDateAndTime(date, time);
-        return candidateDateTime.getTime() > now.getTime();
-      });
-
-      if (nextTime) {
-        setSelectedDateKey(dateOption.key);
-        setSelectedDateTime(mergeDateAndTime(date, nextTime));
-        setIsTimesOpen(true);
-        setConfirmationText(null);
-        return;
-      }
-    }
+    setSelectedSlotStartAt(nextSlot.startAt);
+    setIsTimesOpen(true);
+    setConfirmationText(null);
   }
 
-  function handleConfirmBooking() {
+  async function handleConfirmBooking() {
     if (
-      !selectedSalon ||
+      !selectedSalonId ||
       !selectedService ||
-      !selectedStylist ||
-      !selectedDateTime ||
-      !bookingValidation.isValid ||
+      !selectedStylistId ||
+      !selectedSlot ||
       !bookingValidation.endTime
     ) {
       return;
     }
 
-    setConfirmationText(
-      `Booking oprettet hos ${selectedSalon.name} med ${selectedStylist.name} d. ${formatBookingDateTime(selectedDateTime)}-${bookingValidation.endTime}.`,
-    );
+    try {
+      setIsSubmitting(true);
+      await createBooking({
+        salonId: selectedSalonId,
+        employeeId: selectedStylistId,
+        serviceId: selectedService.id,
+        startAt: selectedSlot.startAt,
+        customerNote: customerNote.trim() || undefined,
+      });
+      await setPreferredSalon({ preferredSalonId: selectedSalonId });
+
+      setConfirmationText(
+        `Booking oprettet hos ${selectedSalon?.name} med ${selectedStylist?.name} d. ${formatBookingDateTime(
+          new Date(selectedSlot.startAt),
+        )}-${bookingValidation.endTime}.`,
+      );
+      setCustomerNote("");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  if (!salonsQuery || profile === undefined) {
+    return <LoadingView />;
   }
 
   return (
@@ -273,20 +321,26 @@ export function BookingScreen() {
         <Text selectable className="text-base font-semibold text-neutral-900">
           1. Vælg salon
         </Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <View className="flex-row gap-3 py-1">
-            {salons.map((salon) => (
-              <BookingOptionChip
-                key={salon.id}
-                title={salon.name}
-                subtitle={`${salon.city} • ${salon.address}`}
-                selected={salon.id === selectedSalonId}
-                className="w-60"
-                onPress={() => handleSelectSalon(salon.id)}
-              />
-            ))}
-          </View>
-        </ScrollView>
+        {salons.length > 0 ? (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View className="flex-row gap-3 py-1">
+              {salons.map((salon) => (
+                <BookingOptionChip
+                  key={salon._id}
+                  title={salon.name}
+                  subtitle={`${salon.city} • ${salon.addressLine1}`}
+                  selected={salon._id === selectedSalonId}
+                  className="w-60"
+                  onPress={() => handleSelectSalon(salon._id)}
+                />
+              ))}
+            </View>
+          </ScrollView>
+        ) : (
+          <Text selectable className="text-sm text-neutral-500">
+            Ingen saloner er oprettet endnu.
+          </Text>
+        )}
       </View>
 
       <View
@@ -297,20 +351,26 @@ export function BookingScreen() {
           2. Vælg behandling
         </Text>
         <View className="gap-2">
-          {serviceCategories.map((category) => (
-            <ServiceCategoryPanel
-              key={category.id}
-              category={category}
-              isOpen={openCategoryId === category.id}
-              selectedServiceId={selectedService?.id ?? null}
-              onToggle={() =>
-                setOpenCategoryId((current) =>
-                  current === category.id ? "" : category.id,
-                )
-              }
-              onSelectService={handleSelectService}
-            />
-          ))}
+          {categories.length > 0 ? (
+            categories.map((category) => (
+              <ServiceCategoryPanel
+                key={category.id}
+                category={category}
+                isOpen={openCategoryId === category.id}
+                selectedServiceId={selectedService?.id ?? null}
+                onToggle={() =>
+                  setOpenCategoryId((current) =>
+                    current === category.id ? "" : category.id,
+                  )
+                }
+                onSelectService={handleSelectService}
+              />
+            ))
+          ) : (
+            <Text selectable className="text-sm text-neutral-500">
+              Ingen behandlinger er aktive i den valgte salon endnu.
+            </Text>
+          )}
         </View>
       </View>
 
@@ -319,16 +379,16 @@ export function BookingScreen() {
         style={{ borderCurve: "continuous" }}
       >
         <Text selectable className="text-base font-semibold text-neutral-900">
-          3. Vælg stylist
+          3. Vælg medarbejder
         </Text>
-        {availableStylists.length > 0 ? (
+        {stylists.length > 0 ? (
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <View className="flex-row gap-3 py-1">
-              {availableStylists.map((stylist) => (
+              {stylists.map((stylist) => (
                 <BookingOptionChip
                   key={stylist.id}
                   title={stylist.name}
-                  subtitle={`${stylist.role} • ${stylist.workingHours.start}-${stylist.workingHours.end}`}
+                  subtitle={stylist.role}
                   selected={stylist.id === selectedStylistId}
                   className="w-55"
                   onPress={() => handleSelectStylist(stylist.id)}
@@ -338,7 +398,7 @@ export function BookingScreen() {
           </ScrollView>
         ) : (
           <Text selectable className="text-sm text-neutral-500">
-            Ingen stylister fundet til den valgte salon.
+            Ingen medarbejdere fundet til den valgte salon.
           </Text>
         )}
       </View>
@@ -377,7 +437,7 @@ export function BookingScreen() {
               selectable
               className="text-xs uppercase tracking-wide text-neutral-500"
             >
-              Tilgængelige tider (auto ud fra valg)
+              Tilgængelige tider
             </Text>
             <Pressable
               accessibilityRole="button"
@@ -413,21 +473,16 @@ export function BookingScreen() {
               {isTimesOpen ? (
                 <View className="gap-2 border-t border-neutral-100 p-3">
                   {predefinedStartTimesForSelectedDate.length > 0 ? (
-                    predefinedStartTimesForSelectedDate.map((time) => {
-                      const endTime = getEndTime(
-                        time,
-                        selectedService.durationMinutes,
-                      );
-                      const isSelected =
-                        selectedDateTime &&
-                        toDateKey(selectedDateTime) === selectedDateKey &&
-                        getTimeFromDate(selectedDateTime) === time;
+                    predefinedStartTimesForSelectedDate.map((slot) => {
+                      const time = getTimeFromDate(new Date(slot.startAt));
+                      const endTime = getTimeFromDate(new Date(slot.endAt));
+                      const isSelected = selectedSlotStartAt === slot.startAt;
 
                       return (
                         <Pressable
-                          key={`${selectedDateKey}-${time}`}
+                          key={slot.startAt}
                           accessibilityRole="button"
-                          onPress={() => handleSelectTime(time)}
+                          onPress={() => handleSelectTime(slot.startAt)}
                           className={`rounded-xl border px-3 py-3 ${
                             isSelected
                               ? "border-neutral-900 bg-neutral-900"
@@ -471,8 +526,8 @@ export function BookingScreen() {
         ) : (
           <View className="rounded-xl border border-blue-200 bg-blue-50 p-3">
             <Text selectable className="text-sm text-blue-800">
-              Vælg behandling og stylist først. Derefter får du konkrete tider
-              med det samme.
+              Vælg behandling og medarbejder først. Derefter hentes ledige tider
+              direkte fra systemet.
             </Text>
           </View>
         )}
@@ -502,7 +557,7 @@ export function BookingScreen() {
             </Text>
           </Text>
           <Text selectable className="text-sm text-neutral-600">
-            Stylist:{" "}
+            Medarbejder:{" "}
             <Text className="font-semibold text-neutral-900">
               {selectedStylist?.name ?? "Ikke valgt"}
             </Text>
@@ -510,14 +565,29 @@ export function BookingScreen() {
           <Text selectable className="text-sm text-neutral-600">
             Dato/tid:{" "}
             <Text className="font-semibold text-neutral-900">
-              {selectedDateTime
-                ? `${formatBookingDateTime(selectedDateTime)}${bookingValidation.endTime ? `-${bookingValidation.endTime}` : ""}`
+              {selectedSlot
+                ? `${formatBookingDateTime(
+                    new Date(selectedSlot.startAt),
+                  )}${bookingValidation.endTime ? `-${bookingValidation.endTime}` : ""}`
                 : "Ikke valgt"}
             </Text>
           </Text>
         </View>
 
-        {bookingValidation.reason && selectedDateTime ? (
+        <View className="gap-1">
+          <Text selectable className="text-xs text-neutral-500">
+            Note til salonen
+          </Text>
+          <TextInput
+            value={customerNote}
+            onChangeText={setCustomerNote}
+            placeholder="Tilføj evt. en kort note"
+            className="rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-3 text-neutral-900"
+            style={{ borderCurve: "continuous" }}
+          />
+        </View>
+
+        {bookingValidation.reason && selectedSlot ? (
           <View className="rounded-xl border border-amber-200 bg-amber-50 p-3">
             <Text selectable className="text-sm text-amber-800">
               {bookingValidation.reason}
@@ -527,10 +597,14 @@ export function BookingScreen() {
 
         <Pressable
           accessibilityRole="button"
-          disabled={!isBookingReady}
-          onPress={handleConfirmBooking}
+          disabled={!isBookingReady || isSubmitting}
+          onPress={() => {
+            void handleConfirmBooking();
+          }}
           className={`rounded-xl px-4 py-3 ${
-            isBookingReady ? "bg-neutral-900" : "bg-neutral-300"
+            isBookingReady && !isSubmitting
+              ? "bg-neutral-900"
+              : "bg-neutral-300"
           }`}
           style={{ borderCurve: "continuous" }}
         >
@@ -538,7 +612,7 @@ export function BookingScreen() {
             selectable
             className="text-center text-base font-semibold text-white"
           >
-            Book tid
+            {isSubmitting ? "Booker..." : "Book tid"}
           </Text>
         </Pressable>
 

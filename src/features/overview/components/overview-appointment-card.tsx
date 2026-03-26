@@ -30,143 +30,72 @@ export function OverviewAppointmentCard({
   const endDate = new Date(
     startDate.getTime() + appointment.durationMinutes * 60_000,
   );
-
-  if (variant === "compact") {
-    const month = monthFormatter
-      .format(startDate)
-      .replace(".", "")
-      .toUpperCase();
-    const day = dayFormatter.format(startDate).replace(".", "");
-    const time = timeFormatter.format(startDate);
-
-    const content = (
-      <>
-        <View
-          className="size-14 items-center rounded-xl bg-neutral-100/60 p-2"
-          style={{ borderCurve: "continuous" }}
-        >
-          <Text selectable className="text-xs font-semibold text-neutral-500">
-            {month}
-          </Text>
-          <Text selectable className="text-xl font-bold  text-neutral-800">
-            {day}
-          </Text>
-        </View>
-
-        <View className="flex-1 gap-1">
-          <Text selectable className="text-2xl font-semibold text-neutral-900">
-            {appointment.serviceName}
-          </Text>
-          <Text selectable className="text-sm text-neutral-600">
-            {time} • {appointment.salonName} • {appointment.stylistName}
-          </Text>
-        </View>
-
-        <Ionicons name="chevron-forward" size={20} />
-      </>
-    );
-
-    if (onPress) {
-      return (
-        <Pressable
-          accessibilityRole="button"
-          onPress={onPress}
-          className="flex-row items-center gap-3 rounded-2xl bg-neutral-200/60 p-4"
-          style={{ borderCurve: "continuous" }}
-        >
-          {content}
-        </Pressable>
-      );
-    }
-
-    return (
-      <View
-        className="flex-row items-center gap-3 rounded-2xl bg-neutral-200/60 p-4"
-        style={{ borderCurve: "continuous" }}
-      >
-        {content}
-      </View>
-    );
-  }
+  const month = monthFormatter.format(startDate).replace(".", "").toUpperCase();
+  const day = dayFormatter.format(startDate).replace(".", "");
+  const time = timeFormatter.format(startDate);
 
   const content = (
-    <>
-      <View className="flex-row items-start justify-between gap-3">
-        <View className="flex-1 gap-1">
-          <Text selectable className="text-xl font-semibold text-neutral-900">
+    <View className="flex-row items-center gap-3 py-3">
+      <View
+        className={`items-center rounded-xl p-2 ${
+          variant === "compact"
+            ? "w-14 bg-neutral-100/80"
+            : "w-15 bg-neutral-100"
+        }`}
+        style={{ borderCurve: "continuous" }}
+      >
+        <Text selectable className="text-[10px] font-semibold text-neutral-500">
+          {month}
+        </Text>
+        <Text selectable className="text-lg font-bold text-neutral-900">
+          {day}
+        </Text>
+      </View>
+
+      <View className="flex-1 gap-1">
+        <View className="flex-row items-center gap-2">
+          <Text
+            selectable
+            className={`font-semibold text-neutral-900 ${
+              variant === "compact" ? "text-base" : "text-lg"
+            }`}
+          >
             {appointment.serviceName}
           </Text>
-          <Text selectable className="text-sm text-neutral-500">
-            {appointment.salonName}
-          </Text>
+          {showStatus && appointment.statusLabel ? (
+            <View
+              className="rounded-full bg-blue-100 px-2 py-0.5"
+              style={{ borderCurve: "continuous" }}
+            >
+              <Text selectable className="text-[10px] font-bold text-blue-700">
+                {appointment.statusLabel}
+              </Text>
+            </View>
+          ) : null}
         </View>
 
-        {showStatus && appointment.statusLabel ? (
-          <View
-            className="rounded-full bg-blue-100 px-3 py-1"
-            style={{ borderCurve: "continuous" }}
-          >
-            <Text selectable className="text-xs font-bold text-blue-700">
-              {appointment.statusLabel}
-            </Text>
-          </View>
-        ) : null}
+        <Text selectable className="text-xs text-neutral-500">
+          {time} · {appointment.salonName}
+        </Text>
+        <Text selectable className="text-xs text-neutral-500">
+          {appointment.stylistName} · {formatOverviewDate(startDate)} ·{" "}
+          {formatOverviewTime(startDate)}-{formatOverviewTime(endDate)}
+        </Text>
       </View>
 
-      <View className="h-px bg-neutral-200" />
-
-      <View className="flex-row items-end justify-between gap-3">
-        <View className="gap-1">
-          <Text
-            selectable
-            className="text-xs uppercase tracking-wide text-neutral-500"
-          >
-            Dato & tid
-          </Text>
-          <Text
-            selectable
-            className="text-base font-semibold text-neutral-900"
-            style={{ fontVariant: ["tabular-nums"] }}
-          >
-            {formatOverviewDate(startDate)}, {formatOverviewTime(startDate)} -{" "}
-            {formatOverviewTime(endDate)}
-          </Text>
-        </View>
-
-        <View className="items-end gap-1">
-          <Text
-            selectable
-            className="text-xs uppercase tracking-wide text-neutral-500"
-          >
-            Stylist
-          </Text>
-          <Text selectable className="text-base font-semibold text-neutral-900">
-            {appointment.stylistName}
-          </Text>
-        </View>
-      </View>
-    </>
+      {onPress ? (
+        <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+      ) : null}
+    </View>
   );
 
   if (onPress) {
     return (
-      <Pressable
-        accessibilityRole="button"
-        onPress={onPress}
-        className="gap-3 rounded-2xl bg-white p-4"
-        style={{ borderCurve: "continuous" }}
-      >
+      <Pressable accessibilityRole="button" onPress={onPress}>
         {content}
       </Pressable>
     );
   }
 
-  return (
-    <View
-      className="gap-3 rounded-2xl bg-white p-4"
-      style={{ borderCurve: "continuous" }}
-    >
-      {content}
-    </View>
-  );
+  return <View>{content}</View>;
 }

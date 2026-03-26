@@ -2,16 +2,10 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import LoadingView from "@/components/ui/loading-view";
 import {
-  AdminBadge,
   AdminButton,
   AdminDayScheduleEditor,
   AdminEmptyState,
-  AdminHero,
-  AdminListItem,
   AdminPillGroup,
-  AdminSection,
-  AdminShortcutCard,
-  AdminStatCard,
   AdminSwitchField,
   AdminTextField,
 } from "@/features/admin/components/admin-ui";
@@ -20,10 +14,12 @@ import type {
   DayDraft,
   EmployeeAssignRole,
 } from "@/features/admin/onboarding/types";
+import { Link } from "expo-router";
 import { useMutation, useQuery } from "convex/react";
 import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
+  Pressable,
   ScrollView,
   Text,
   View,
@@ -59,6 +55,52 @@ const EMPTY_EDITOR: EmployeeEditorState = {
 function sanitizeOptional(value: string) {
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function Surface({
+  title,
+  subtitle,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <View
+      className="gap-4 rounded-3xl border border-neutral-200 bg-white p-4"
+      style={{ borderCurve: "continuous" }}
+    >
+      <View className="gap-1">
+        <Text selectable className="text-lg font-semibold text-neutral-950">
+          {title}
+        </Text>
+        {subtitle ? (
+          <Text selectable className="text-sm text-neutral-500">
+            {subtitle}
+          </Text>
+        ) : null}
+      </View>
+      {children}
+    </View>
+  );
+}
+
+function MetricRow({ label, value }: { label: string; value: string }) {
+  return (
+    <View className="flex-row items-center justify-between py-3">
+      <Text selectable className="text-sm text-neutral-600">
+        {label}
+      </Text>
+      <Text
+        selectable
+        className="text-sm font-semibold text-neutral-900"
+        style={{ fontVariant: ["tabular-nums"] }}
+      >
+        {value}
+      </Text>
+    </View>
+  );
 }
 
 export function AdminEmployeesScreen() {
@@ -279,73 +321,88 @@ export function AdminEmployeesScreen() {
     (item) => item.salonId === selectedSalonId,
   );
 
+  const selectedEmployee = employees.find(
+    (employee) => employee._id === selectedEmployeeId,
+  );
+
   return (
     <ScrollView
       contentInsetAdjustmentBehavior="automatic"
-      className="flex-1 bg-stone-100"
-      contentContainerClassName="mx-auto w-full max-w-7xl gap-5 p-4 pb-16"
+      className="flex-1 bg-[#f5f5f7]"
+      contentContainerClassName="mx-auto w-full max-w-6xl gap-5 px-4 pb-20"
     >
-      <AdminHero
-        eyebrow="Medarbejder"
-        title="Teamadministration samlet ét sted"
-        description="Vælg en medarbejder, redigér stamdata og bind personen til en salon med rolle og ugentlig arbejdstid uden at skifte route."
-      >
-        <View className={`gap-3 ${isCompact ? "" : "flex-row"}`}>
-          <AdminShortcutCard
-            href="/admin"
-            title="Til statistik"
-            description="Hop tilbage til driftsdashboardet med KPI’er, omsætning og salonsnapshot."
-            cta="Åbn statistik"
+      <View className="gap-2 pt-2">
+        <Text
+          selectable
+          className="text-xs uppercase tracking-[2px] text-neutral-500"
+        >
+          Medarbejdere
+        </Text>
+        <Text selectable className="text-3xl font-semibold text-neutral-950">
+          Teamstyring
+        </Text>
+        <Text selectable className="text-sm leading-6 text-neutral-600">
+          Opret, redigér og tilknyt medarbejdere til saloner med arbejdstider i
+          et samlet, roligt flow.
+        </Text>
+      </View>
+
+      <View className="flex-row flex-wrap items-center gap-2">
+        <Link href="/admin" asChild>
+          <Pressable
+            className="rounded-full border border-neutral-300 bg-white px-4 py-2"
+            style={{ borderCurve: "continuous" }}
+          >
+            <Text selectable className="text-sm font-semibold text-neutral-900">
+              Statistik
+            </Text>
+          </Pressable>
+        </Link>
+        <Link href="/(settings)/admin" asChild>
+          <Pressable
+            className="rounded-full border border-neutral-300 bg-white px-4 py-2"
+            style={{ borderCurve: "continuous" }}
+          >
+            <Text selectable className="text-sm font-semibold text-neutral-900">
+              Opret salon
+            </Text>
+          </Pressable>
+        </Link>
+      </View>
+
+      <Surface title="Overblik">
+        <View>
+          <MetricRow label="Medarbejdere" value={String(employees.length)} />
+          <View className="h-px bg-neutral-200" />
+          <MetricRow
+            label="Aktive"
+            value={String(employees.filter((item) => item.isActive).length)}
           />
-          <AdminShortcutCard
-            href="/(settings)/admin"
-            title="Ny salon"
-            description="Hvis teamet skal udvides til en ny lokation, oprettes salonen i indstillinger."
-            cta="Åbn indstillinger"
+          <View className="h-px bg-neutral-200" />
+          <MetricRow
+            label="Kontaktdata"
+            value={String(
+              employees.filter((item) => item.email || item.phone).length,
+            )}
+          />
+          <View className="h-px bg-neutral-200" />
+          <MetricRow
+            label="Salonrelationer"
+            value={String(
+              employees.reduce(
+                (sum, employee) => sum + employee.activeSalonCount,
+                0,
+              ),
+            )}
           />
         </View>
-      </AdminHero>
-
-      <View className={`gap-3 ${isCompact ? "" : "flex-row flex-wrap"}`}>
-        <AdminStatCard
-          label="Medarbejdere"
-          value={String(employees.length)}
-          tone="dark"
-          helper="Profiler i systemet"
-        />
-        <AdminStatCard
-          label="Aktive"
-          value={String(employees.filter((item) => item.isActive).length)}
-          tone="neutral"
-          helper="Profiler med aktiv status"
-        />
-        <AdminStatCard
-          label="Kontaktdata"
-          value={String(
-            employees.filter((item) => item.email || item.phone).length,
-          )}
-          tone="warm"
-          helper="Har email eller telefon"
-        />
-        <AdminStatCard
-          label="Salonrelationer"
-          value={String(
-            employees.reduce(
-              (sum, employee) => sum + employee.activeSalonCount,
-              0,
-            ),
-          )}
-          tone="neutral"
-          helper="Aktive medarbejder-salon koblinger"
-        />
-      </View>
+      </Surface>
 
       <View className={`gap-5 ${isCompact ? "" : "flex-row items-start"}`}>
         <View className={isCompact ? "gap-5" : "w-[320px] gap-5"}>
-          <AdminSection
-            eyebrow="Liste"
-            title="Medarbejdere"
-            description="Søg i teamet eller start en ny profil direkte herfra."
+          <Surface
+            title="Medarbejderliste"
+            subtitle="Søg i teamet eller opret en ny profil"
           >
             <View className="gap-3">
               <AdminTextField
@@ -365,54 +422,65 @@ export function AdminEmployeesScreen() {
                   description="Prøv en anden søgning eller opret en ny profil."
                 />
               ) : (
-                filteredEmployees.map((employee) => (
-                  <AdminListItem
-                    key={employee._id}
-                    title={employee.fullName}
-                    subtitle={
-                      [
-                        employee.title,
-                        employee.email,
-                        employee.phone,
-                        employee.assignments
-                          .map((assignment) => assignment.salonName)
-                          .join(", "),
-                      ]
-                        .filter(Boolean)
-                        .join(" · ") || "Ingen ekstra oplysninger endnu"
-                    }
-                    meta={employee.isActive ? "Aktiv" : "Inaktiv"}
-                    selected={selectedEmployeeId === employee._id}
-                    onPress={() => setSelectedEmployeeId(employee._id)}
-                    footer={
-                      employee.assignments.length > 0 ? (
-                        <View className="flex-row flex-wrap gap-2">
-                          {employee.assignments.map((assignment) => (
-                            <AdminBadge
-                              key={assignment._id}
-                              label={`${assignment.salonName} · ${assignment.role}`}
-                              tone={assignment.isActive ? "neutral" : "warning"}
-                            />
-                          ))}
-                        </View>
-                      ) : undefined
-                    }
-                  />
-                ))
+                filteredEmployees.map((employee, index) => {
+                  const isSelected = selectedEmployeeId === employee._id;
+                  return (
+                    <Pressable
+                      key={employee._id}
+                      onPress={() => setSelectedEmployeeId(employee._id)}
+                      className={`rounded-2xl border px-3 py-3 ${
+                        isSelected
+                          ? "border-neutral-900 bg-neutral-100"
+                          : "border-neutral-200 bg-white"
+                      }`}
+                      style={{ borderCurve: "continuous" }}
+                    >
+                      <Text
+                        selectable
+                        className="text-sm font-semibold text-neutral-900"
+                      >
+                        {employee.fullName}
+                      </Text>
+                      <Text
+                        selectable
+                        className="mt-1 text-xs text-neutral-500"
+                      >
+                        {[
+                          employee.title,
+                          employee.email,
+                          employee.phone,
+                          employee.assignments
+                            .map((assignment) => assignment.salonName)
+                            .join(", "),
+                        ]
+                          .filter(Boolean)
+                          .join(" · ") || "Ingen ekstra oplysninger endnu"}
+                      </Text>
+                      <Text
+                        selectable
+                        className="mt-2 text-xs text-neutral-600"
+                      >
+                        {employee.isActive ? "Aktiv" : "Inaktiv"}
+                      </Text>
+                      {index < filteredEmployees.length - 1 ? null : null}
+                    </Pressable>
+                  );
+                })
               )}
             </View>
-          </AdminSection>
+          </Surface>
         </View>
 
         <View className="flex-1 gap-5">
-          <AdminSection
-            eyebrow="Profil"
+          <Surface
             title={
               selectedEmployeeId === "new"
                 ? "Opret medarbejder"
-                : "Redigér medarbejder"
+                : selectedEmployee
+                  ? `Redigér ${selectedEmployee.fullName}`
+                  : "Redigér medarbejder"
             }
-            description="Stamdata gemmes her. Salonrolle og arbejdstid styres i sektionen nedenunder."
+            subtitle="Stamdata for den valgte profil"
           >
             <View className="gap-3">
               <AdminTextField
@@ -475,12 +543,11 @@ export function AdminEmployeesScreen() {
                 }
               />
             </View>
-          </AdminSection>
+          </Surface>
 
-          <AdminSection
-            eyebrow="Tilknytning"
+          <Surface
             title="Salon, rolle og arbejdstider"
-            description="Vælg lokation og bestem, hvordan medarbejderen er sat op i den valgte salon."
+            subtitle="Tilknytning og ugeplan for den valgte medarbejder"
           >
             {salons.length === 0 ? (
               <AdminEmptyState
@@ -522,23 +589,25 @@ export function AdminEmployeesScreen() {
                   />
                 </View>
 
-                {selectedAssignment ? (
-                  <View className="flex-row flex-wrap gap-2">
-                    <AdminBadge
-                      label="Eksisterende tilknytning"
-                      tone="success"
-                    />
-                    <AdminBadge
-                      label={`Rolle: ${selectedAssignment.role}`}
-                      tone="neutral"
-                    />
-                  </View>
-                ) : (
-                  <AdminBadge
-                    label="Ny salon-tilknytning gemmes ved næste save"
-                    tone="warning"
-                  />
-                )}
+                <View
+                  className={`rounded-2xl border px-3 py-2 ${
+                    selectedAssignment
+                      ? "border-emerald-200 bg-emerald-50"
+                      : "border-amber-200 bg-amber-50"
+                  }`}
+                  style={{ borderCurve: "continuous" }}
+                >
+                  <Text
+                    selectable
+                    className={`text-xs font-semibold ${
+                      selectedAssignment ? "text-emerald-800" : "text-amber-800"
+                    }`}
+                  >
+                    {selectedAssignment
+                      ? `Eksisterende tilknytning · rolle: ${selectedAssignment.role}`
+                      : "Ny tilknytning gemmes ved næste save"}
+                  </Text>
+                </View>
 
                 <AdminDayScheduleEditor rows={week} onChange={setWeek} />
 
@@ -549,7 +618,7 @@ export function AdminEmployeesScreen() {
                 />
               </View>
             )}
-          </AdminSection>
+          </Surface>
         </View>
       </View>
     </ScrollView>

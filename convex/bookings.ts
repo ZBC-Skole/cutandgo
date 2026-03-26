@@ -40,24 +40,39 @@ async function getEmployeeDayContext(
 
   const workingHours = await ctx.db
     .query("employeeWorkingHours")
-    .withIndex("by_employee_weekday", (q) => q.eq("employeeId", employeeId).eq("weekday", weekday))
+    .withIndex("by_employee_weekday", (q) =>
+      q.eq("employeeId", employeeId).eq("weekday", weekday),
+    )
     .collect();
-  const workingHour = workingHours.find((row) => row.salonId === salonId && !row.isOff);
+  const workingHour = workingHours.find(
+    (row) => row.salonId === salonId && !row.isOff,
+  );
   if (!workingHour) {
     return null;
   }
 
   const absenceCandidates = await ctx.db
     .query("employeeAbsences")
-    .withIndex("by_employee_start", (q) => q.eq("employeeId", employeeId).lt("startAt", dayEndTs))
+    .withIndex("by_employee_start", (q) =>
+      q.eq("employeeId", employeeId).lt("startAt", dayEndTs),
+    )
     .collect();
-  const absences = absenceCandidates.filter((absence) => overlaps(absence.startAt, absence.endAt, dayStartTs, dayEndTs));
+  const absences = absenceCandidates.filter((absence) =>
+    overlaps(absence.startAt, absence.endAt, dayStartTs, dayEndTs),
+  );
 
   const bookings = await ctx.db
     .query("bookings")
-    .withIndex("by_employee_start", (q) => q.eq("employeeId", employeeId).gte("startAt", dayStartTs).lt("startAt", dayEndTs))
+    .withIndex("by_employee_start", (q) =>
+      q
+        .eq("employeeId", employeeId)
+        .gte("startAt", dayStartTs)
+        .lt("startAt", dayEndTs),
+    )
     .collect();
-  const occupied = bookings.filter((booking) => activeBookingStatuses.has(booking.status));
+  const occupied = bookings.filter((booking) =>
+    activeBookingStatuses.has(booking.status),
+  );
 
   return {
     workingHour,
@@ -75,7 +90,11 @@ function getPotentialSlots(args: {
   const slots: Array<{ startAt: number; endAt: number }> = [];
   const stepMs = args.stepMinutes * 60_000;
   const durationMs = args.totalServiceMinutes * 60_000;
-  for (let cursor = args.availableFromTs; cursor + durationMs <= args.availableToTs; cursor += stepMs) {
+  for (
+    let cursor = args.availableFromTs;
+    cursor + durationMs <= args.availableToTs;
+    cursor += stepMs
+  ) {
     slots.push({
       startAt: cursor,
       endAt: cursor + durationMs,
@@ -109,7 +128,9 @@ async function computeSalonSlots(
   const openingHoursForDay = await ctx.db
     .query("salonOpeningHours")
     .withIndex("by_salon_weekday", (q) =>
-      q.eq("salonId", args.salonId).eq("weekday", new Date(args.dayStartTs).getDay()),
+      q
+        .eq("salonId", args.salonId)
+        .eq("weekday", new Date(args.dayStartTs).getDay()),
     )
     .unique();
 
@@ -117,10 +138,19 @@ async function computeSalonSlots(
     return [];
   }
 
-  const salonOpenTs = applyTimeToTimestamp(args.dayStartTs, openingHoursForDay.opensAt);
-  const salonCloseTs = applyTimeToTimestamp(args.dayStartTs, openingHoursForDay.closesAt);
+  const salonOpenTs = applyTimeToTimestamp(
+    args.dayStartTs,
+    openingHoursForDay.opensAt,
+  );
+  const salonCloseTs = applyTimeToTimestamp(
+    args.dayStartTs,
+    openingHoursForDay.closesAt,
+  );
   const stepMinutes = Math.max(5, args.stepMinutes ?? 15);
-  const totalServiceMinutes = service.durationMinutes + service.bufferBeforeMinutes + service.bufferAfterMinutes;
+  const totalServiceMinutes =
+    service.durationMinutes +
+    service.bufferBeforeMinutes +
+    service.bufferAfterMinutes;
 
   let employeeIds: Id<"employees">[] = [];
   if (args.employeeId) {
@@ -130,18 +160,32 @@ async function computeSalonSlots(
       .query("employeeSalonRoles")
       .withIndex("by_salon", (q) => q.eq("salonId", args.salonId))
       .collect();
-    employeeIds = assignments.filter((item) => item.isActive).map((item) => item.employeeId);
+    employeeIds = assignments
+      .filter((item) => item.isActive)
+      .map((item) => item.employeeId);
   }
 
   const output: EmployeeSlotResult[] = [];
   for (const employeeId of employeeIds) {
-    const dayContext = await getEmployeeDayContext(ctx, employeeId, args.salonId, args.dayStartTs, args.dayEndTs);
+    const dayContext = await getEmployeeDayContext(
+      ctx,
+      employeeId,
+      args.salonId,
+      args.dayStartTs,
+      args.dayEndTs,
+    );
     if (!dayContext) {
       continue;
     }
 
-    const employeeStartTs = applyTimeToTimestamp(args.dayStartTs, dayContext.workingHour.startAt);
-    const employeeEndTs = applyTimeToTimestamp(args.dayStartTs, dayContext.workingHour.endAt);
+    const employeeStartTs = applyTimeToTimestamp(
+      args.dayStartTs,
+      dayContext.workingHour.startAt,
+    );
+    const employeeEndTs = applyTimeToTimestamp(
+      args.dayStartTs,
+      dayContext.workingHour.endAt,
+    );
     const availableFromTs = Math.max(salonOpenTs, employeeStartTs);
     const availableToTs = Math.min(salonCloseTs, employeeEndTs);
 
@@ -238,7 +282,9 @@ export const createBooking = mutation({
 
     const assignment = await ctx.db
       .query("employeeSalonRoles")
-      .withIndex("by_salon_employee", (q) => q.eq("salonId", args.salonId).eq("employeeId", args.employeeId))
+      .withIndex("by_salon_employee", (q) =>
+        q.eq("salonId", args.salonId).eq("employeeId", args.employeeId),
+      )
       .unique();
     if (!assignment || !assignment.isActive) {
       throw new Error("Frisøren er ikke aktiv i den valgte salon.");
@@ -249,7 +295,10 @@ export const createBooking = mutation({
       throw new Error("Kategori mangler for service.");
     }
 
-    const totalMinutes = service.durationMinutes + service.bufferBeforeMinutes + service.bufferAfterMinutes;
+    const totalMinutes =
+      service.durationMinutes +
+      service.bufferBeforeMinutes +
+      service.bufferAfterMinutes;
     const endAt = args.startAt + totalMinutes * 60_000;
 
     const dayStart = new Date(args.startAt);
@@ -283,7 +332,7 @@ export const createBooking = mutation({
     }
 
     const now = Date.now();
-    return await ctx.db.insert("bookings", {
+    const bookingId = await ctx.db.insert("bookings", {
       customerAuthUserId: authUser._id,
       salonId: args.salonId,
       employeeId: args.employeeId,
@@ -299,10 +348,43 @@ export const createBooking = mutation({
       createdAt: now,
       updatedAt: now,
     });
+
+    const existingProfile = await ctx.db
+      .query("userProfiles")
+      .withIndex("by_auth_user_id", (q) => q.eq("authUserId", authUser._id))
+      .unique();
+
+    if (existingProfile) {
+      await ctx.db.patch(existingProfile._id, {
+        preferredSalonId: args.salonId,
+        updatedAt: now,
+      });
+    } else {
+      await ctx.db.insert("userProfiles", {
+        authUserId: authUser._id,
+        fullName: authUser.name?.trim() || "Cut&Go kunde",
+        email:
+          typeof authUser.email === "string" && authUser.email.trim().length > 0
+            ? authUser.email.trim()
+            : undefined,
+        phone: undefined,
+        preferredSalonId: args.salonId,
+        defaultLatitude: undefined,
+        defaultLongitude: undefined,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+
+    return bookingId;
   },
 });
 
-async function canManageBooking(ctx: Ctx, booking: Doc<"bookings">, authUserId: string) {
+async function canManageBooking(
+  ctx: Ctx,
+  booking: Doc<"bookings">,
+  authUserId: string,
+) {
   if (booking.customerAuthUserId === authUserId) {
     return { allowed: true, mode: "customer" as const };
   }
@@ -319,7 +401,9 @@ async function canManageBooking(ctx: Ctx, booking: Doc<"bookings">, authUserId: 
 
   const assignment = await ctx.db
     .query("employeeSalonRoles")
-    .withIndex("by_salon_employee", (q) => q.eq("salonId", booking.salonId).eq("employeeId", employee._id))
+    .withIndex("by_salon_employee", (q) =>
+      q.eq("salonId", booking.salonId).eq("employeeId", employee._id),
+    )
     .unique();
 
   if (!assignment || !assignment.isActive) {
@@ -327,6 +411,26 @@ async function canManageBooking(ctx: Ctx, booking: Doc<"bookings">, authUserId: 
   }
 
   return { allowed: true, mode: "salon" as const };
+}
+
+async function getBookingOverviewItem(ctx: QueryCtx, booking: Doc<"bookings">) {
+  const salon = await ctx.db.get(booking.salonId);
+  const employee = await ctx.db.get(booking.employeeId);
+
+  return {
+    id: booking._id,
+    serviceName: booking.serviceNameSnapshot,
+    salonName: salon?.name ?? "Ukendt salon",
+    stylistName: employee?.fullName ?? "Ukendt medarbejder",
+    startsAt: new Date(booking.startAt).toISOString(),
+    durationMinutes: booking.durationMinutesSnapshot,
+    address: salon
+      ? `${salon.addressLine1}, ${salon.postalCode} ${salon.city}`
+      : "Adresse ikke fundet",
+    latitude: salon?.latitude,
+    longitude: salon?.longitude,
+    status: booking.status,
+  };
 }
 
 export const cancelBooking = mutation({
@@ -351,7 +455,10 @@ export const cancelBooking = mutation({
 
     const now = Date.now();
     await ctx.db.patch(args.bookingId, {
-      status: access.mode === "customer" ? "cancelled_by_customer" : "cancelled_by_salon",
+      status:
+        access.mode === "customer"
+          ? "cancelled_by_customer"
+          : "cancelled_by_salon",
       cancellationReason: args.reason,
       cancelledAt: now,
       cancelledByAuthUserId: authUser._id,
@@ -375,7 +482,12 @@ export const confirmBooking = mutation({
       throw new Error("Kun bookinger med status 'booked' kan bekræftes.");
     }
 
-    await requireSalonAccess(ctx, booking.salonId, ["owner", "manager", "stylist", "assistant"]);
+    await requireSalonAccess(ctx, booking.salonId, [
+      "owner",
+      "manager",
+      "stylist",
+      "assistant",
+    ]);
     await ctx.db.patch(args.bookingId, {
       status: "confirmed",
       updatedAt: Date.now(),
@@ -398,7 +510,12 @@ export const markCompleted = mutation({
       throw new Error("Kun aktive bookinger kan markeres færdige.");
     }
 
-    await requireSalonAccess(ctx, booking.salonId, ["owner", "manager", "stylist", "assistant"]);
+    await requireSalonAccess(ctx, booking.salonId, [
+      "owner",
+      "manager",
+      "stylist",
+      "assistant",
+    ]);
     await ctx.db.patch(args.bookingId, {
       status: "completed",
       updatedAt: Date.now(),
@@ -418,12 +535,90 @@ export const getMyCustomerBookings = query({
 
     const bookings = await ctx.db
       .query("bookings")
-      .withIndex("by_customer_start", (q) => q.eq("customerAuthUserId", authUser._id))
+      .withIndex("by_customer_start", (q) =>
+        q.eq("customerAuthUserId", authUser._id),
+      )
       .collect();
 
     return bookings
-      .filter((booking) => (args.includePast ?? false ? true : booking.endAt >= now))
+      .filter((booking) =>
+        (args.includePast ?? false) ? true : booking.endAt >= now,
+      )
       .sort((a, b) => a.startAt - b.startAt);
+  },
+});
+
+export const getMyOverviewBookings = query({
+  args: {},
+  handler: async (ctx) => {
+    const authUser = await requireAuthUser(ctx);
+
+    const bookings = await ctx.db
+      .query("bookings")
+      .withIndex("by_customer_start", (q) =>
+        q.eq("customerAuthUserId", authUser._id),
+      )
+      .collect();
+
+    const hydrated = [];
+    for (const booking of bookings) {
+      hydrated.push(await getBookingOverviewItem(ctx, booking));
+    }
+
+    return hydrated.sort(
+      (a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime(),
+    );
+  },
+});
+
+export const getViewerBookingDetail = query({
+  args: {
+    bookingId: v.id("bookings"),
+  },
+  handler: async (ctx, args) => {
+    const authUser = await requireAuthUser(ctx);
+    const booking = await ctx.db.get(args.bookingId);
+    if (!booking) {
+      return null;
+    }
+
+    const access = await canManageBooking(ctx, booking, authUser._id);
+    if (!access.allowed) {
+      throw new Error("Du har ikke adgang til denne booking.");
+    }
+
+    const salon = await ctx.db.get(booking.salonId);
+    const employee = await ctx.db.get(booking.employeeId);
+    const photos = await ctx.db
+      .query("appointmentPhotos")
+      .withIndex("by_booking_type", (q) =>
+        q.eq("bookingId", args.bookingId).eq("photoType", "reference"),
+      )
+      .collect();
+
+    const referencePhotoUris = (
+      await Promise.all(
+        photos.map(async (photo) => await ctx.storage.getUrl(photo.storageId)),
+      )
+    ).filter((value): value is string => Boolean(value));
+
+    return {
+      id: booking._id,
+      serviceName: booking.serviceNameSnapshot,
+      salonName: salon?.name ?? "Ukendt salon",
+      stylistName: employee?.fullName ?? "Ukendt medarbejder",
+      startsAt: booking.startAt,
+      endAt: booking.endAt,
+      durationMinutes: booking.durationMinutesSnapshot,
+      address: salon
+        ? `${salon.addressLine1}, ${salon.postalCode} ${salon.city}`
+        : "Adresse ikke fundet",
+      latitude: salon?.latitude,
+      longitude: salon?.longitude,
+      status: booking.status,
+      customerNote: booking.customerNote ?? null,
+      referencePhotoUris,
+    };
   },
 });
 
@@ -443,7 +638,12 @@ export const getMyEmployeeBookings = query({
     const toTs = args.toTs ?? Date.now() + 60 * 24 * 60 * 60 * 1000;
     const bookings = await ctx.db
       .query("bookings")
-      .withIndex("by_employee_start", (q) => q.eq("employeeId", employee._id).gte("startAt", fromTs).lt("startAt", toTs))
+      .withIndex("by_employee_start", (q) =>
+        q
+          .eq("employeeId", employee._id)
+          .gte("startAt", fromTs)
+          .lt("startAt", toTs),
+      )
       .collect();
 
     return bookings.sort((a, b) => a.startAt - b.startAt);

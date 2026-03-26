@@ -41,28 +41,35 @@ export function OverviewSection({
       </View>
 
       {appointments.length > 0 ? (
-        <View className="gap-3">
+        <View
+          className="overflow-hidden rounded-2xl border border-neutral-200 bg-white px-4"
+          style={{ borderCurve: "continuous" }}
+        >
           {appointments.map((appointment, index) => (
-            <OverviewAppointmentCard
-              key={appointment.id}
-              appointment={appointment}
-              showStatus={showStatusForFirst && index === 0}
-              variant={
-                compactAll || (showStatusForFirst && index > 0)
-                  ? "compact"
-                  : "default"
-              }
-              onPress={
-                onPressAppointment
-                  ? () => onPressAppointment(appointment)
-                  : undefined
-              }
-            />
+            <View key={appointment.id}>
+              <OverviewAppointmentCard
+                appointment={appointment}
+                showStatus={showStatusForFirst && index === 0}
+                variant={
+                  compactAll || (showStatusForFirst && index > 0)
+                    ? "compact"
+                    : "default"
+                }
+                onPress={
+                  onPressAppointment
+                    ? () => onPressAppointment(appointment)
+                    : undefined
+                }
+              />
+              {index < appointments.length - 1 ? (
+                <View className="h-px bg-neutral-200" />
+              ) : null}
+            </View>
           ))}
         </View>
       ) : (
         <View
-          className="rounded-2xl bg-white p-4 shadow-sm"
+          className="rounded-2xl border border-neutral-200 bg-white p-4"
           style={{ borderCurve: "continuous" }}
         >
           <Text selectable className="text-sm text-neutral-500">

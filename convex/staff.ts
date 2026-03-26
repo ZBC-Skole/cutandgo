@@ -158,6 +158,41 @@ export const listSalonEmployees = query({
   },
 });
 
+export const listPublicSalonEmployees = query({
+  args: {
+    salonId: v.id("salons"),
+  },
+  handler: async (ctx, args) => {
+    const assignments = await ctx.db
+      .query("employeeSalonRoles")
+      .withIndex("by_salon", (q) => q.eq("salonId", args.salonId))
+      .collect();
+
+    const activeAssignments = assignments.filter(
+      (assignment) => assignment.isActive,
+    );
+    const results = [];
+
+    for (const assignment of activeAssignments) {
+      const employee = await ctx.db.get(assignment.employeeId);
+      if (!employee || !employee.isActive) {
+        continue;
+      }
+
+      results.push({
+        _id: employee._id,
+        fullName: employee.fullName,
+        title: employee.title ?? assignment.role,
+        role: assignment.role,
+      });
+    }
+
+    return results.sort((a, b) =>
+      a.fullName.localeCompare(b.fullName, "da-DK"),
+    );
+  },
+});
+
 export const getWorkingHours = query({
   args: {
     employeeId: v.id("employees"),
