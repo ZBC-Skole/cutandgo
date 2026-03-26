@@ -1,11 +1,9 @@
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import {
-  AdminBadge,
   AdminButton,
   AdminDayScheduleEditor,
   AdminEmptyState,
-  AdminHero,
   AdminListItem,
   AdminSection,
   AdminTextField,
@@ -20,12 +18,12 @@ import * as Location from "expo-location";
 import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
+  Pressable,
   ScrollView,
   Text,
   View,
   useWindowDimensions,
 } from "react-native";
-import { useRouter } from "expo-router";
 
 type SalonFormState = {
   name: string;
@@ -90,7 +88,6 @@ function toWeekDraft(
 }
 
 export function AdminSalonSettingsScreen() {
-  const router = useRouter();
   const { width } = useWindowDimensions();
   const salonsQuery = useQuery(api.salons.listActive);
   const salons = useMemo(() => salonsQuery ?? [], [salonsQuery]);
@@ -114,7 +111,7 @@ export function AdminSalonSettingsScreen() {
   const [existingHoursFeedback, setExistingHoursFeedback] = useState<
     string | null
   >(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"create" | "manage">("create");
   const isCompact = width < 900;
   const existingOpeningHours = useQuery(
     api.salons.getOpeningHours,
@@ -297,12 +294,10 @@ export function AdminSalonSettingsScreen() {
       setOpeningWeek(createDefaultWeek());
       setIsSlugManuallyEdited(false);
       setFeedback("Salon og åbningstider blev oprettet.");
-      setSuccessMessage(
-        `${createdSalonName} er nu oprettet med basis-åbningstider og klar til drift.`,
-      );
+      setActiveTab("manage");
       Alert.alert(
         "Salon oprettet",
-        "Den nye salon og dens åbningstider er nu aktive i admin.",
+        `${createdSalonName} er nu oprettet og klar.`,
       );
     } catch (error) {
       Alert.alert("Kunne ikke oprette salon", String(error));
@@ -340,246 +335,267 @@ export function AdminSalonSettingsScreen() {
   return (
     <ScrollView
       contentInsetAdjustmentBehavior="automatic"
-      className="flex-1 bg-stone-100"
-      contentContainerClassName="mx-auto w-full max-w-6xl gap-5 p-4 pb-16"
+      className="flex-1 bg-neutral-100"
+      contentContainerClassName="mx-auto w-full max-w-4xl gap-4 p-4 pb-16"
     >
-      <AdminHero
-        eyebrow="Admin indstillinger"
-        title="Opret salon med adresse, kontaktdata og åbningstider"
-        description="Salonoprettelse ligger bevidst i indstillinger, så det daglige adminarbejde holdes adskilt fra strukturelle ændringer i forretningen."
-      />
-
-      {successMessage ? (
-        <AdminSection
-          eyebrow="Succes"
-          title="Salonoprettelsen gik igennem"
-          description={successMessage}
+      <View className="gap-1 pt-1">
+        <Text
+          selectable
+          className="text-xs uppercase tracking-[2px] text-neutral-500"
         >
+          Saloner
+        </Text>
+        <Text selectable className="text-2xl font-semibold text-neutral-950">
+          Salon administration
+        </Text>
+      </View>
+
+      <View
+        className="flex-row rounded-2xl bg-white p-1"
+        style={{ borderCurve: "continuous" }}
+      >
+        <Pressable
+          onPress={() => setActiveTab("create")}
+          className={`flex-1 rounded-xl px-3 py-2 ${
+            activeTab === "create" ? "bg-neutral-900" : "bg-transparent"
+          }`}
+          style={{ borderCurve: "continuous" }}
+        >
+          <Text
+            selectable
+            className={`text-center text-sm font-semibold ${
+              activeTab === "create" ? "text-white" : "text-neutral-700"
+            }`}
+          >
+            Opret salon
+          </Text>
+        </Pressable>
+        <Pressable
+          onPress={() => setActiveTab("manage")}
+          className={`flex-1 rounded-xl px-3 py-2 ${
+            activeTab === "manage" ? "bg-neutral-900" : "bg-transparent"
+          }`}
+          style={{ borderCurve: "continuous" }}
+        >
+          <Text
+            selectable
+            className={`text-center text-sm font-semibold ${
+              activeTab === "manage" ? "text-white" : "text-neutral-700"
+            }`}
+          >
+            Saloner
+          </Text>
+        </Pressable>
+      </View>
+
+      {activeTab === "create" ? (
+        <AdminSection
+          title="Opret ny salon"
+          description="Indtast stamdata og åbningstider i ét simpelt flow."
+        >
+          <View className={`gap-3 ${isCompact ? "" : "flex-row"}`}>
+            <View className="flex-1 gap-3">
+              <AdminTextField
+                label="Salonnavn"
+                value={form.name}
+                onChangeText={updateSalonName}
+                placeholder="Cut&Go Frederiksberg"
+                autoCapitalize="words"
+              />
+              <AdminTextField
+                label="Slug"
+                value={form.slug}
+                onChangeText={updateSalonSlug}
+                placeholder="cutgo-frederiksberg"
+                autoCapitalize="none"
+              />
+              <AdminTextField
+                label="Søg adresse"
+                value={form.addressQuery}
+                onChangeText={(value) => patchForm({ addressQuery: value })}
+                placeholder="Fx Falkoner Alle 21, Frederiksberg"
+              />
+              <View className={`gap-3 ${width < 640 ? "" : "flex-row"}`}>
+                <View className="flex-1">
+                  <AdminButton
+                    title={
+                      isSearchingAddress ? "Søger adresse..." : "Find adresse"
+                    }
+                    onPress={handleSearchAddress}
+                    variant="secondary"
+                    disabled={isSearchingAddress || isSubmitting}
+                  />
+                </View>
+                <View className="flex-1">
+                  <AdminButton
+                    title={
+                      isUsingCurrentLocation
+                        ? "Henter lokation..."
+                        : "Brug min lokation"
+                    }
+                    onPress={handleUseCurrentLocation}
+                    variant="secondary"
+                    disabled={isUsingCurrentLocation || isSubmitting}
+                  />
+                </View>
+              </View>
+            </View>
+
+            <View className="flex-1 gap-3">
+              <AdminTextField
+                label="Adresse"
+                value={form.addressLine1}
+                onChangeText={(value) => patchForm({ addressLine1: value })}
+                placeholder="Gadenavn og nummer"
+              />
+              <View className="flex-row gap-3">
+                <View className="flex-1">
+                  <AdminTextField
+                    label="Postnummer"
+                    value={form.postalCode}
+                    onChangeText={(value) => patchForm({ postalCode: value })}
+                    placeholder="2000"
+                    keyboardType="numeric"
+                  />
+                </View>
+                <View className="flex-1">
+                  <AdminTextField
+                    label="By"
+                    value={form.city}
+                    onChangeText={(value) => patchForm({ city: value })}
+                    placeholder="Frederiksberg"
+                    autoCapitalize="words"
+                  />
+                </View>
+              </View>
+              <View className="flex-row gap-3">
+                <View className="flex-1">
+                  <AdminTextField
+                    label="Telefon"
+                    value={form.phone}
+                    onChangeText={(value) => patchForm({ phone: value })}
+                    placeholder="+45 12 34 56 78"
+                    keyboardType="phone-pad"
+                  />
+                </View>
+                <View className="flex-1">
+                  <AdminTextField
+                    label="Email"
+                    value={form.email}
+                    onChangeText={(value) => patchForm({ email: value })}
+                    placeholder="salon@cutandgo.dk"
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                  />
+                </View>
+              </View>
+              <View
+                className="gap-1 rounded-xl border border-neutral-200 bg-neutral-50 p-3"
+                style={{ borderCurve: "continuous" }}
+              >
+                <Text
+                  selectable
+                  className="text-xs font-semibold text-neutral-700"
+                >
+                  Lokation
+                </Text>
+                <Text selectable className="text-sm text-neutral-600">
+                  {form.addressLine1 || "Ingen adresse valgt"}
+                </Text>
+                <Text selectable className="text-sm text-neutral-600">
+                  {[form.postalCode, form.city].filter(Boolean).join(" ") ||
+                    "By og postnummer mangler"}
+                </Text>
+                <Text selectable className="text-sm text-neutral-600">
+                  {form.latitude && form.longitude
+                    ? `${form.latitude}, ${form.longitude}`
+                    : "Koordinater mangler"}
+                </Text>
+                {feedback ? (
+                  <Text selectable className="text-xs text-neutral-700">
+                    {feedback}
+                  </Text>
+                ) : null}
+              </View>
+            </View>
+          </View>
+
           <View className="gap-3">
-            <AdminBadge
-              label="Klar til statistik og team-setup"
-              tone="success"
+            <Text selectable className="text-sm font-semibold text-neutral-950">
+              Åbningstider
+            </Text>
+            <AdminDayScheduleEditor
+              rows={openingWeek}
+              onChange={setOpeningWeek}
             />
             <AdminButton
-              title="Gå til statistik"
-              onPress={() => {
-                setSuccessMessage(null);
-                router.push("/admin");
-              }}
-              variant="secondary"
+              title={isSubmitting ? "Opretter salon..." : "Opret salon"}
+              onPress={handleCreateSalon}
+              disabled={isSubmitting}
             />
           </View>
         </AdminSection>
-      ) : null}
-
-      <AdminSection
-        eyebrow="Trin 1"
-        title="Salon-stamdata"
-        description="Først indtastes navne-, adresse- og kontaktoplysninger. Lokationen kan findes via søgning eller enhedens nuværende position."
-      >
-        <View className={`gap-3 ${isCompact ? "" : "flex-row"}`}>
-          <View className="flex-1 gap-3">
-            <AdminTextField
-              label="Salonnavn"
-              value={form.name}
-              onChangeText={updateSalonName}
-              placeholder="Cut&Go Frederiksberg"
-              autoCapitalize="words"
-            />
-            <AdminTextField
-              label="Slug"
-              value={form.slug}
-              onChangeText={updateSalonSlug}
-              placeholder="cutgo-frederiksberg"
-              autoCapitalize="none"
-            />
-            <AdminTextField
-              label="Søg adresse"
-              value={form.addressQuery}
-              onChangeText={(value) => patchForm({ addressQuery: value })}
-              placeholder="Fx Falkoner Alle 21, Frederiksberg"
-            />
-            <View className={`gap-3 ${width < 640 ? "" : "flex-row"}`}>
-              <View className="flex-1">
-                <AdminButton
-                  title={
-                    isSearchingAddress ? "Søger adresse..." : "Find adresse"
-                  }
-                  onPress={handleSearchAddress}
-                  variant="secondary"
-                  disabled={isSearchingAddress || isSubmitting}
-                />
-              </View>
-              <View className="flex-1">
-                <AdminButton
-                  title={
-                    isUsingCurrentLocation
-                      ? "Henter lokation..."
-                      : "Brug min lokation"
-                  }
-                  onPress={handleUseCurrentLocation}
-                  variant="secondary"
-                  disabled={isUsingCurrentLocation || isSubmitting}
-                />
-              </View>
-            </View>
-          </View>
-
-          <View className="flex-1 gap-3">
-            <AdminTextField
-              label="Adresse"
-              value={form.addressLine1}
-              onChangeText={(value) => patchForm({ addressLine1: value })}
-              placeholder="Gadenavn og nummer"
-            />
-            <View className="flex-row gap-3">
-              <View className="flex-1">
-                <AdminTextField
-                  label="Postnummer"
-                  value={form.postalCode}
-                  onChangeText={(value) => patchForm({ postalCode: value })}
-                  placeholder="2000"
-                  keyboardType="numeric"
-                />
-              </View>
-              <View className="flex-1">
-                <AdminTextField
-                  label="By"
-                  value={form.city}
-                  onChangeText={(value) => patchForm({ city: value })}
-                  placeholder="Frederiksberg"
-                  autoCapitalize="words"
-                />
-              </View>
-            </View>
-            <View className="flex-row gap-3">
-              <View className="flex-1">
-                <AdminTextField
-                  label="Telefon"
-                  value={form.phone}
-                  onChangeText={(value) => patchForm({ phone: value })}
-                  placeholder="+45 12 34 56 78"
-                  keyboardType="phone-pad"
-                />
-              </View>
-              <View className="flex-1">
-                <AdminTextField
-                  label="Email"
-                  value={form.email}
-                  onChangeText={(value) => patchForm({ email: value })}
-                  placeholder="salon@cutandgo.dk"
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                />
-              </View>
-            </View>
-          </View>
-        </View>
-
-        <View
-          className="gap-2 rounded-[24px] border border-dashed border-neutral-300 bg-neutral-50 p-4"
-          style={{ borderCurve: "continuous" }}
+      ) : (
+        <AdminSection
+          title="Eksisterende saloner"
+          description="Vælg en salon og opdatér åbningstider."
         >
-          <Text selectable className="text-sm font-semibold text-neutral-950">
-            Valgt lokation
-          </Text>
-          <Text selectable className="text-sm text-neutral-600">
-            {form.addressLine1 || "Ingen adresse valgt endnu"}
-          </Text>
-          <Text selectable className="text-sm text-neutral-600">
-            {[form.postalCode, form.city].filter(Boolean).join(" ") ||
-              "By og postnummer mangler"}
-          </Text>
-          <Text selectable className="text-sm text-neutral-600">
-            {form.latitude && form.longitude
-              ? `${form.latitude}, ${form.longitude}`
-              : "Koordinater ikke valgt endnu"}
-          </Text>
-          {feedback ? (
-            <Text selectable className="text-sm font-medium text-neutral-700">
-              {feedback}
-            </Text>
-          ) : null}
-        </View>
-      </AdminSection>
-
-      <AdminSection
-        eyebrow="Trin 2"
-        title="Åbningstider"
-        description="Disse åbningstider gemmes sammen med salonoprettelsen, så setup ikke ender i to adskilte trin."
-      >
-        <AdminDayScheduleEditor rows={openingWeek} onChange={setOpeningWeek} />
-
-        <AdminButton
-          title={isSubmitting ? "Opretter salon..." : "Opret salon"}
-          onPress={handleCreateSalon}
-          disabled={isSubmitting}
-        />
-      </AdminSection>
-
-      <AdminSection
-        eyebrow="Eksisterende saloner"
-        title="Aktive saloner i systemet"
-        description="Vælg en salon og opdatér åbningstider direkte i admin."
-      >
-        <View className={`gap-4 ${isCompact ? "" : "flex-row"}`}>
-          <View className="flex-1 gap-3">
-            {salons.length === 0 ? (
-              <AdminEmptyState
-                title="Ingen saloner endnu"
-                description="Den første salon oprettes i formularen ovenfor."
-              />
-            ) : (
-              salons.map((salon) => (
-                <AdminListItem
-                  key={salon._id}
-                  title={salon.name}
-                  subtitle={`${salon.addressLine1}, ${salon.postalCode} ${salon.city}`}
-                  meta={salon.slug}
-                  selected={selectedExistingSalonId === salon._id}
-                  onPress={() => {
-                    setSelectedExistingSalonId(salon._id);
-                    setExistingHoursFeedback(null);
-                  }}
+          <View className={`gap-4 ${isCompact ? "" : "flex-row"}`}>
+            <View className="flex-1 gap-3">
+              {salons.length === 0 ? (
+                <AdminEmptyState
+                  title="Ingen saloner endnu"
+                  description="Opret din første salon under fanen 'Opret salon'."
                 />
-              ))
-            )}
+              ) : (
+                salons.map((salon) => (
+                  <AdminListItem
+                    key={salon._id}
+                    title={salon.name}
+                    subtitle={`${salon.addressLine1}, ${salon.postalCode} ${salon.city}`}
+                    meta={salon.slug}
+                    selected={selectedExistingSalonId === salon._id}
+                    onPress={() => {
+                      setSelectedExistingSalonId(salon._id);
+                      setExistingHoursFeedback(null);
+                    }}
+                  />
+                ))
+              )}
+            </View>
+
+            <View className="flex-1 gap-3">
+              {selectedExistingSalonId ? (
+                <>
+                  <AdminDayScheduleEditor
+                    rows={existingOpeningWeek}
+                    onChange={setExistingOpeningWeek}
+                  />
+                  <AdminButton
+                    title={
+                      isSavingExistingHours
+                        ? "Gemmer åbningstider..."
+                        : "Gem åbningstider"
+                    }
+                    onPress={handleSaveExistingOpeningHours}
+                    disabled={isSavingExistingHours}
+                  />
+                  {existingHoursFeedback ? (
+                    <Text selectable className="text-sm text-neutral-700">
+                      {existingHoursFeedback}
+                    </Text>
+                  ) : null}
+                </>
+              ) : (
+                <AdminEmptyState
+                  title="Vælg en salon"
+                  description="Når en salon er valgt, kan åbningstider redigeres her."
+                />
+              )}
+            </View>
           </View>
-
-          <View className="flex-1 gap-3">
-            {selectedExistingSalonId ? (
-              <>
-                <AdminDayScheduleEditor
-                  rows={existingOpeningWeek}
-                  onChange={setExistingOpeningWeek}
-                />
-                <AdminButton
-                  title={
-                    isSavingExistingHours
-                      ? "Gemmer åbningstider..."
-                      : "Gem åbningstider"
-                  }
-                  onPress={handleSaveExistingOpeningHours}
-                  disabled={isSavingExistingHours}
-                />
-                {existingHoursFeedback ? (
-                  <Text
-                    selectable
-                    className="text-sm font-medium text-neutral-700"
-                  >
-                    {existingHoursFeedback}
-                  </Text>
-                ) : null}
-              </>
-            ) : (
-              <AdminEmptyState
-                title="Vælg en salon"
-                description="Når en salon er valgt, kan åbningstider redigeres her."
-              />
-            )}
-          </View>
-        </View>
-      </AdminSection>
+        </AdminSection>
+      )}
     </ScrollView>
   );
 }
