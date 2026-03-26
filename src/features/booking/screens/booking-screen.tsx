@@ -64,8 +64,8 @@ export function BookingScreen() {
   }, [profile?.preferredSalonId, salons]);
 
   const categoriesQuery = useQuery(
-    api.services.listBySalon,
-    selectedSalonId ? { salonId: selectedSalonId, activeOnly: true } : "skip",
+    api.services.listPublicBySalon,
+    selectedSalonId ? { salonId: selectedSalonId } : "skip",
   );
   const stylistsQuery = useQuery(
     api.staff.listPublicSalonEmployees,

@@ -18,14 +18,28 @@ function overlaps(aStart: number, aEnd: number, bStart: number, bEnd: number) {
 
 function parseTimeToMinutes(time: string) {
   const [hour, minute] = time.split(":").map((value) => Number(value));
+  if (
+    !Number.isInteger(hour) ||
+    !Number.isInteger(minute) ||
+    hour < 0 ||
+    hour > 23 ||
+    minute < 0 ||
+    minute > 59
+  ) {
+    throw new Error(`Ugyldigt tidsformat: ${time}`);
+  }
   return hour * 60 + minute;
 }
 
 function applyTimeToTimestamp(dayStartTs: number, time: string) {
-  const date = new Date(dayStartTs);
   const minutes = parseTimeToMinutes(time);
-  date.setHours(Math.floor(minutes / 60), minutes % 60, 0, 0);
-  return date.getTime();
+  return dayStartTs + minutes * 60_000;
+}
+
+function getWeekdayFromDayStart(dayStartTs: number) {
+  // `dayStartTs` comes from client-local midnight.
+  // +12h avoids timezone boundary drift when read on server.
+  return new Date(dayStartTs + 12 * 60 * 60 * 1000).getUTCDay();
 }
 
 async function getEmployeeDayContext(
@@ -35,8 +49,7 @@ async function getEmployeeDayContext(
   dayStartTs: number,
   dayEndTs: number,
 ) {
-  const date = new Date(dayStartTs);
-  const weekday = date.getDay();
+  const weekday = getWeekdayFromDayStart(dayStartTs);
 
   const workingHours = await ctx.db
     .query("employeeWorkingHours")
@@ -130,7 +143,7 @@ async function computeSalonSlots(
     .withIndex("by_salon_weekday", (q) =>
       q
         .eq("salonId", args.salonId)
-        .eq("weekday", new Date(args.dayStartTs).getDay()),
+        .eq("weekday", getWeekdayFromDayStart(args.dayStartTs)),
     )
     .unique();
 

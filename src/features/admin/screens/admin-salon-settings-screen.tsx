@@ -1,4 +1,5 @@
 import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 import {
   AdminBadge,
   AdminButton,
@@ -7,7 +8,6 @@ import {
   AdminHero,
   AdminListItem,
   AdminSection,
-  AdminShortcutCard,
   AdminTextField,
 } from "@/features/admin/components/admin-ui";
 import {
@@ -17,7 +17,7 @@ import {
 import type { DayDraft } from "@/features/admin/onboarding/types";
 import { useMutation, useQuery } from "convex/react";
 import * as Location from "expo-location";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   ScrollView,
@@ -60,23 +60,83 @@ function sanitizeOptional(value: string) {
   return trimmed.length > 0 ? trimmed : undefined;
 }
 
+function toWeekDraft(
+  rows:
+    | {
+        weekday: number;
+        opensAt: string;
+        closesAt: string;
+        isClosed?: boolean;
+      }[]
+    | undefined,
+) {
+  const base = createDefaultWeek();
+  if (!rows || rows.length === 0) {
+    return base;
+  }
+
+  return base.map((day) => {
+    const match = rows.find((row) => row.weekday === day.weekday);
+    if (!match) {
+      return day;
+    }
+    return {
+      weekday: day.weekday,
+      opensAt: match.opensAt,
+      closesAt: match.closesAt,
+      isClosed: match.isClosed ?? false,
+    };
+  });
+}
+
 export function AdminSalonSettingsScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
-  const salons = useQuery(api.salons.listActive) ?? [];
+  const salonsQuery = useQuery(api.salons.listActive);
+  const salons = useMemo(() => salonsQuery ?? [], [salonsQuery]);
   const createSalonWithOpeningHours = useMutation(
     api.salons.createWithOpeningHours,
   );
+  const setOpeningHours = useMutation(api.salons.setOpeningHours);
   const [form, setForm] = useState<SalonFormState>(INITIAL_FORM);
   const [openingWeek, setOpeningWeek] =
+    useState<DayDraft[]>(createDefaultWeek());
+  const [selectedExistingSalonId, setSelectedExistingSalonId] =
+    useState<Id<"salons"> | null>(null);
+  const [existingOpeningWeek, setExistingOpeningWeek] =
     useState<DayDraft[]>(createDefaultWeek());
   const [isSlugManuallyEdited, setIsSlugManuallyEdited] = useState(false);
   const [isSearchingAddress, setIsSearchingAddress] = useState(false);
   const [isUsingCurrentLocation, setIsUsingCurrentLocation] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSavingExistingHours, setIsSavingExistingHours] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [existingHoursFeedback, setExistingHoursFeedback] = useState<
+    string | null
+  >(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const isCompact = width < 900;
+  const existingOpeningHours = useQuery(
+    api.salons.getOpeningHours,
+    selectedExistingSalonId ? { salonId: selectedExistingSalonId } : "skip",
+  );
+
+  useEffect(() => {
+    if (salons.length === 0) {
+      setSelectedExistingSalonId(null);
+      return;
+    }
+
+    setSelectedExistingSalonId((current) =>
+      current && salons.some((salon) => salon._id === current)
+        ? current
+        : salons[0]._id,
+    );
+  }, [salons]);
+
+  useEffect(() => {
+    setExistingOpeningWeek(toWeekDraft(existingOpeningHours));
+  }, [existingOpeningHours]);
 
   function patchForm(patch: Partial<SalonFormState>) {
     setForm((current) => ({ ...current, ...patch }));
@@ -251,6 +311,32 @@ export function AdminSalonSettingsScreen() {
     }
   }
 
+  async function handleSaveExistingOpeningHours() {
+    if (!selectedExistingSalonId) {
+      return;
+    }
+
+    try {
+      setIsSavingExistingHours(true);
+      setExistingHoursFeedback(null);
+      await setOpeningHours({
+        salonId: selectedExistingSalonId,
+        entries: existingOpeningWeek.map((row) => ({
+          weekday: row.weekday,
+          opensAt: row.opensAt,
+          closesAt: row.closesAt,
+          isClosed: row.isClosed,
+        })),
+      });
+      setExistingHoursFeedback("Åbningstiderne er opdateret.");
+      Alert.alert("Gemt", "De nye åbningstider er nu aktive.");
+    } catch (error) {
+      Alert.alert("Kunne ikke gemme åbningstider", String(error));
+    } finally {
+      setIsSavingExistingHours(false);
+    }
+  }
+
   return (
     <ScrollView
       contentInsetAdjustmentBehavior="automatic"
@@ -261,22 +347,7 @@ export function AdminSalonSettingsScreen() {
         eyebrow="Admin indstillinger"
         title="Opret salon med adresse, kontaktdata og åbningstider"
         description="Salonoprettelse ligger bevidst i indstillinger, så det daglige adminarbejde holdes adskilt fra strukturelle ændringer i forretningen."
-      >
-        <View className={`gap-3 ${isCompact ? "" : "flex-row"}`}>
-          <AdminShortcutCard
-            href="/admin"
-            title="Til statistik"
-            description="Gå tilbage til dashboardet og se den nye salon indgå i admin-overblikket."
-            cta="Åbn statistik"
-          />
-          <AdminShortcutCard
-            href="/employees"
-            title="Til medarbejdere"
-            description="Når salonen er oprettet, kan teamet knyttes til den direkte fra medarbejder-siden."
-            cta="Åbn medarbejdere"
-          />
-        </View>
-      </AdminHero>
+      />
 
       {successMessage ? (
         <AdminSection
@@ -449,24 +520,64 @@ export function AdminSalonSettingsScreen() {
       <AdminSection
         eyebrow="Eksisterende saloner"
         title="Aktive saloner i systemet"
-        description="Listen gør det nemt at validere, at en ny salon er landet rigtigt efter oprettelsen."
+        description="Vælg en salon og opdatér åbningstider direkte i admin."
       >
-        <View className="gap-3">
-          {salons.length === 0 ? (
-            <AdminEmptyState
-              title="Ingen saloner endnu"
-              description="Den første salon oprettes i formularen ovenfor."
-            />
-          ) : (
-            salons.map((salon) => (
-              <AdminListItem
-                key={salon._id}
-                title={salon.name}
-                subtitle={`${salon.addressLine1}, ${salon.postalCode} ${salon.city}`}
-                meta={salon.slug}
+        <View className={`gap-4 ${isCompact ? "" : "flex-row"}`}>
+          <View className="flex-1 gap-3">
+            {salons.length === 0 ? (
+              <AdminEmptyState
+                title="Ingen saloner endnu"
+                description="Den første salon oprettes i formularen ovenfor."
               />
-            ))
-          )}
+            ) : (
+              salons.map((salon) => (
+                <AdminListItem
+                  key={salon._id}
+                  title={salon.name}
+                  subtitle={`${salon.addressLine1}, ${salon.postalCode} ${salon.city}`}
+                  meta={salon.slug}
+                  selected={selectedExistingSalonId === salon._id}
+                  onPress={() => {
+                    setSelectedExistingSalonId(salon._id);
+                    setExistingHoursFeedback(null);
+                  }}
+                />
+              ))
+            )}
+          </View>
+
+          <View className="flex-1 gap-3">
+            {selectedExistingSalonId ? (
+              <>
+                <AdminDayScheduleEditor
+                  rows={existingOpeningWeek}
+                  onChange={setExistingOpeningWeek}
+                />
+                <AdminButton
+                  title={
+                    isSavingExistingHours
+                      ? "Gemmer åbningstider..."
+                      : "Gem åbningstider"
+                  }
+                  onPress={handleSaveExistingOpeningHours}
+                  disabled={isSavingExistingHours}
+                />
+                {existingHoursFeedback ? (
+                  <Text
+                    selectable
+                    className="text-sm font-medium text-neutral-700"
+                  >
+                    {existingHoursFeedback}
+                  </Text>
+                ) : null}
+              </>
+            ) : (
+              <AdminEmptyState
+                title="Vælg en salon"
+                description="Når en salon er valgt, kan åbningstider redigeres her."
+              />
+            )}
+          </View>
         </View>
       </AdminSection>
     </ScrollView>

@@ -4,7 +4,7 @@ import { Link } from "expo-router";
 import type { ReactNode } from "react";
 import { Pressable, Switch, Text, TextInput, View } from "react-native";
 
-type AdminHref = "/admin" | "/employees" | "/(settings)/admin";
+type AdminHref = "/admin" | "/employees" | "/services" | "/(settings)/admin";
 
 export function AdminHero({
   eyebrow,

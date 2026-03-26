@@ -95,8 +95,10 @@ export function SettingsScreen() {
   const sessionState = authClient.useSession();
   const role = useRole();
   const resetAdminOnboarding = useMutation(api.adminOnboarding.resetMy);
+  const bootstrapFirstAdmin = useMutation(api.userRoles.bootstrapFirstAdmin);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [isResettingOnboarding, setIsResettingOnboarding] = useState(false);
+  const [isBootstrappingAdmin, setIsBootstrappingAdmin] = useState(false);
 
   const sessionData = useMemo(
     () => (sessionState.data as SessionShape | null) ?? null,
@@ -164,6 +166,23 @@ export function SettingsScreen() {
     }
   }
 
+  async function handleBootstrapAdmin() {
+    if (isBootstrappingAdmin) {
+      return;
+    }
+
+    try {
+      setIsBootstrappingAdmin(true);
+      await bootstrapFirstAdmin({});
+      Alert.alert("Admin aktiveret", "Din bruger er nu admin. Åbn appen igen.");
+      router.replace("/(settings)");
+    } catch (error) {
+      Alert.alert("Kunne ikke aktivere admin", String(error));
+    } finally {
+      setIsBootstrappingAdmin(false);
+    }
+  }
+
   return (
     <ScrollView
       contentInsetAdjustmentBehavior="automatic"
@@ -222,32 +241,6 @@ export function SettingsScreen() {
       </View>
 
       <View
-        className={`gap-2 rounded-2xl p-4 ${
-          role.isAdmin ? "bg-amber-50" : "bg-blue-50"
-        }`}
-        style={{ borderCurve: "continuous" }}
-      >
-        <Text
-          selectable
-          className={`text-xs font-semibold uppercase tracking-wide ${
-            role.isAdmin ? "text-amber-700" : "text-blue-700"
-          }`}
-        >
-          Rolle UI
-        </Text>
-        <Text
-          selectable
-          className={`text-sm ${
-            role.isAdmin ? "text-amber-900" : "text-blue-900"
-          }`}
-        >
-          {role.isAdmin
-            ? "Admin mode aktiv: vis admin-værktøjer, rapporter og udvidet kontrol."
-            : "Standard mode aktiv: vis kunde/medarbejder flow uden admin-værktøjer."}
-        </Text>
-      </View>
-
-      <View
         className="gap-1 rounded-2xl bg-white p-2"
         style={{ borderCurve: "continuous" }}
       >
@@ -257,13 +250,25 @@ export function SettingsScreen() {
               selectable
               className="px-2 pt-2 text-xs font-semibold uppercase tracking-wide text-neutral-500"
             >
-              Admin
+              Admin værktøjer
             </Text>
             <SettingsRow
-              title="Admin indstillinger"
-              subtitle="Opret ny salon i indstillinger"
+              title="Saloner og åbningstider"
+              subtitle="Opret salon og redigér åbningstider"
               iconName="business-outline"
               onPress={() => router.push("/(settings)/admin")}
+            />
+            <SettingsRow
+              title="Medarbejdere"
+              subtitle="Administrér ansatte og roller"
+              iconName="people-outline"
+              onPress={() => router.push("/employees")}
+            />
+            <SettingsRow
+              title="Services"
+              subtitle="Opret og slet services"
+              iconName="cut-outline"
+              onPress={() => router.push("/services")}
             />
             <SettingsRow
               title={
@@ -276,19 +281,30 @@ export function SettingsScreen() {
               onPress={handleRestartOnboarding}
             />
           </>
-        ) : null}
-
-        {role.isAdmin ? (
-          <View className="mx-2 my-1 h-px bg-neutral-200" />
-        ) : null}
-
+        ) : (
+          <>
+            <Text
+              selectable
+              className="px-2 pt-2 text-xs font-semibold uppercase tracking-wide text-neutral-500"
+            >
+              Adgang
+            </Text>
+            <SettingsRow
+              title={
+                isBootstrappingAdmin ? "Aktiverer admin..." : "Aktivér admin"
+              }
+              subtitle="Virker kun når der ikke allerede findes en admin-bruger"
+              iconName="shield-checkmark-outline"
+              onPress={handleBootstrapAdmin}
+            />
+          </>
+        )}
         <Text
           selectable
           className="px-2 pt-2 text-xs font-semibold uppercase tracking-wide text-neutral-500"
         >
           Legal
         </Text>
-
         <SettingsRow
           title="Privatlivspolitik"
           subtitle="Hvordan vi håndterer dine data"

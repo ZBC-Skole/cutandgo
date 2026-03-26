@@ -24,6 +24,10 @@ export function RootTabs() {
             options={{ title: "Medarbejdere", headerShown: false }}
           />
           <Tabs.Screen
+            name="services"
+            options={{ title: "Services", headerShown: false }}
+          />
+          <Tabs.Screen
             name="(settings)"
             options={{ title: "Indstillinger", headerShown: false }}
           />
@@ -66,6 +70,14 @@ export function RootTabs() {
             md="groups"
           />
           <NativeTabs.Trigger.Label>Medarbejdere</NativeTabs.Trigger.Label>
+        </NativeTabs.Trigger>
+
+        <NativeTabs.Trigger name="services">
+          <NativeTabs.Trigger.Icon
+            sf={{ default: "scissors", selected: "scissors" }}
+            md="content_cut"
+          />
+          <NativeTabs.Trigger.Label>Services</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
 
         <NativeTabs.Trigger name="(settings)">

@@ -44,7 +44,7 @@ export function useAdminOnboarding() {
   );
   const categoriesWithServicesQuery = useQuery(
     api.services.listBySalon,
-    selectedSalonId ? { salonId: selectedSalonId, activeOnly: false } : "skip",
+    selectedSalonId ? { salonId: selectedSalonId, activeOnly: true } : "skip",
   );
   const salonEmployeesQuery = useQuery(
     api.staff.listSalonEmployees,
