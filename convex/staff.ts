@@ -193,6 +193,40 @@ export const listPublicSalonEmployees = query({
   },
 });
 
+export const getMyActiveSalons = query({
+  args: {},
+  handler: async (ctx) => {
+    const authUser = await requireAuthUser(ctx);
+    const employee = await getEmployeeByAuthUserId(ctx, authUser._id);
+    if (!employee) {
+      return [];
+    }
+
+    const assignments = await ctx.db
+      .query("employeeSalonRoles")
+      .withIndex("by_employee", (q) => q.eq("employeeId", employee._id))
+      .collect();
+
+    const activeAssignments = assignments.filter((assignment) => assignment.isActive);
+    const output = [];
+    for (const assignment of activeAssignments) {
+      const salon = await ctx.db.get(assignment.salonId);
+      if (!salon || !salon.isActive) {
+        continue;
+      }
+
+      output.push({
+        salonId: salon._id,
+        salonName: salon.name,
+        city: salon.city,
+        role: assignment.role,
+      });
+    }
+
+    return output.sort((a, b) => a.salonName.localeCompare(b.salonName, "da-DK"));
+  },
+});
+
 export const getWorkingHours = query({
   args: {
     employeeId: v.id("employees"),
@@ -461,6 +495,85 @@ export const registerSickLeaveAndAutoCancel = mutation({
     await ctx.db.patch(absenceId, {
       cancelledAppointmentsCount: cancelledCount,
       updatedAt: Date.now(),
+    });
+
+    return { absenceId, cancelledCount };
+  },
+});
+
+export const reportMySickLeave = mutation({
+  args: {
+    salonId: v.id("salons"),
+    startAt: v.number(),
+    endAt: v.number(),
+    reason: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const authUser = await requireAuthUser(ctx);
+    const employee = await getEmployeeByAuthUserId(ctx, authUser._id);
+    if (!employee) {
+      throw new Error("Ingen medarbejderprofil fundet.");
+    }
+
+    if (args.endAt <= args.startAt) {
+      throw new Error("Sluttid skal være efter starttid.");
+    }
+
+    const assignment = await ctx.db
+      .query("employeeSalonRoles")
+      .withIndex("by_salon_employee", (q) =>
+        q.eq("salonId", args.salonId).eq("employeeId", employee._id),
+      )
+      .unique();
+    if (!assignment || !assignment.isActive) {
+      throw new Error("Du er ikke aktiv i den valgte salon.");
+    }
+
+    const now = Date.now();
+    const absenceId = await ctx.db.insert("employeeAbsences", {
+      employeeId: employee._id,
+      salonId: args.salonId,
+      startAt: args.startAt,
+      endAt: args.endAt,
+      reason: args.reason,
+      status: "active",
+      cancelledAppointmentsCount: 0,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const bookings = await ctx.db
+      .query("bookings")
+      .withIndex("by_employee_start", (q) =>
+        q.eq("employeeId", employee._id).lt("startAt", args.endAt),
+      )
+      .collect();
+
+    let cancelledCount = 0;
+    for (const booking of bookings) {
+      if (booking.salonId !== args.salonId) {
+        continue;
+      }
+      if (!activeBookingStatuses.has(booking.status)) {
+        continue;
+      }
+      if (!overlaps(booking.startAt, booking.endAt, args.startAt, args.endAt)) {
+        continue;
+      }
+
+      cancelledCount += 1;
+      await ctx.db.patch(booking._id, {
+        status: "cancelled_by_salon",
+        cancellationReason: args.reason ?? "Aflyst pga. sygdom",
+        cancelledAt: now,
+        cancelledByAuthUserId: authUser._id,
+        updatedAt: now,
+      });
+    }
+
+    await ctx.db.patch(absenceId, {
+      cancelledAppointmentsCount: cancelledCount,
+      updatedAt: now,
     });
 
     return { absenceId, cancelledCount };

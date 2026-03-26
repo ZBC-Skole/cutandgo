@@ -10,6 +10,7 @@ export function RootTabs() {
   }
 
   const isAdmin = role.primaryRole === "admin";
+  const isEmployee = role.primaryRole === "medarbejder";
 
   if (process.env.EXPO_OS === "web") {
     if (isAdmin) {
@@ -26,6 +27,21 @@ export function RootTabs() {
           <Tabs.Screen
             name="services"
             options={{ title: "Services", headerShown: false }}
+          />
+          <Tabs.Screen
+            name="(settings)"
+            options={{ title: "Indstillinger", headerShown: false }}
+          />
+        </Tabs>
+      );
+    }
+
+    if (isEmployee) {
+      return (
+        <Tabs>
+          <Tabs.Screen
+            name="(employee)"
+            options={{ title: "Medarbejder", headerShown: false }}
           />
           <Tabs.Screen
             name="(settings)"
@@ -78,6 +94,28 @@ export function RootTabs() {
             md="content_cut"
           />
           <NativeTabs.Trigger.Label>Services</NativeTabs.Trigger.Label>
+        </NativeTabs.Trigger>
+
+        <NativeTabs.Trigger name="(settings)">
+          <NativeTabs.Trigger.Icon
+            sf={{ default: "gear", selected: "gearshape.fill" }}
+            md="settings"
+          />
+          <NativeTabs.Trigger.Label>Indstillinger</NativeTabs.Trigger.Label>
+        </NativeTabs.Trigger>
+      </NativeTabs>
+    );
+  }
+
+  if (isEmployee) {
+    return (
+      <NativeTabs>
+        <NativeTabs.Trigger name="(employee)">
+          <NativeTabs.Trigger.Icon
+            sf={{ default: "calendar", selected: "calendar.circle.fill" }}
+            md="calendar_month"
+          />
+          <NativeTabs.Trigger.Label>Medarbejder</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
 
         <NativeTabs.Trigger name="(settings)">
