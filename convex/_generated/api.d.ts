@@ -35,7 +35,6 @@ import type * as backend_domains_users_index from "../backend/domains/users/inde
 import type * as backend_domains_users_profiles from "../backend/domains/users/profiles.js";
 import type * as backend_domains_users_roles from "../backend/domains/users/roles.js";
 import type * as backend_security_authz from "../backend/security/authz.js";
-import type * as config from "../config.js";
 import type * as http from "../http.js";
 
 import type {
@@ -72,7 +71,6 @@ declare const fullApi: ApiFromModules<{
   "backend/domains/users/profiles": typeof backend_domains_users_profiles;
   "backend/domains/users/roles": typeof backend_domains_users_roles;
   "backend/security/authz": typeof backend_security_authz;
-  config: typeof config;
   http: typeof http;
 }>;
 
