@@ -38,7 +38,7 @@ export function EmployeeDashboardScreen() {
         style={{ borderCurve: "continuous" }}
       >
         <Text selectable className="text-base font-semibold text-neutral-900">
-          Meld syg
+          Meld fravær
         </Text>
 
         {dashboard.activeSalons.length > 0 ? (
@@ -105,14 +105,9 @@ export function EmployeeDashboardScreen() {
           Start: {formatDateTime(dashboard.sickStartAt)}
         </Text>
 
-        <TextInput
-          value={dashboard.sickDurationHours}
-          onChangeText={dashboard.setSickDurationHours}
-          placeholder="Varighed i timer"
-          keyboardType="numeric"
-          className="rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-3 text-neutral-900"
-          style={{ borderCurve: "continuous" }}
-        />
+        <Text selectable className="text-xs text-neutral-600">
+          Fravær registreres resten af dagen.
+        </Text>
 
         <TextInput
           value={dashboard.sickReason}
@@ -142,7 +137,7 @@ export function EmployeeDashboardScreen() {
             selectable
             className="text-center text-base font-semibold text-white"
           >
-            {dashboard.isSubmittingSickLeave ? "Gemmer..." : "Meld syg"}
+            {dashboard.isSubmittingSickLeave ? "Gemmer..." : "Meld fravær"}
           </Text>
         </Pressable>
 
@@ -164,7 +159,9 @@ export function EmployeeDashboardScreen() {
                 : "text-emerald-800"
             }`}
           >
-            {dashboard.isResolvingSickLeave ? "Arbejder..." : "Meld rask"}
+            {dashboard.isResolvingSickLeave
+              ? "Arbejder..."
+              : "Meld tilbage på arbejde"}
           </Text>
         </Pressable>
       </View>

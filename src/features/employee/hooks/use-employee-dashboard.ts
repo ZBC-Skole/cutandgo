@@ -19,6 +19,12 @@ export function roundToNextQuarter(timestamp: number) {
   return Math.ceil(timestamp / quarter) * quarter;
 }
 
+function getEndOfDay(timestamp: number) {
+  const date = new Date(timestamp);
+  date.setHours(23, 59, 59, 999);
+  return date.getTime();
+}
+
 const activeBookingStatuses = new Set(["booked", "confirmed"]);
 
 export const statusLabelByKey: Record<string, string> = {
@@ -67,7 +73,6 @@ export function useEmployeeDashboard() {
   const [sickStartAt, setSickStartAt] = useState(() =>
     roundToNextQuarter(Date.now()),
   );
-  const [sickDurationHours, setSickDurationHours] = useState("8");
   const [sickReason, setSickReason] = useState("Sygdom");
 
   const list = useMemo(() => schedule ?? [], [schedule]);
@@ -179,22 +184,12 @@ export function useEmployeeDashboard() {
       return;
     }
 
-    const durationHours = Number(sickDurationHours);
-    if (!Number.isFinite(durationHours) || durationHours <= 0) {
-      Alert.alert(
-        "Ugyldig varighed",
-        "Varighed skal være et tal større end 0.",
-      );
-      return;
-    }
-
     try {
       setIsSubmittingSickLeave(true);
-      const endAt = sickStartAt + Math.round(durationHours * 60) * 60_000;
       const result = await reportMySickLeave({
         salonId: selectedSalonId,
         startAt: sickStartAt,
-        endAt,
+        endAt: getEndOfDay(sickStartAt),
         reason: sickReason.trim() || undefined,
       });
       Alert.alert(
@@ -238,8 +233,6 @@ export function useEmployeeDashboard() {
     setSelectedSalonId,
     sickStartAt,
     setSickStartAt,
-    sickDurationHours,
-    setSickDurationHours,
     sickReason,
     setSickReason,
     isSubmittingSickLeave,
