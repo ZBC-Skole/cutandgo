@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import type { MutationCtx } from "./_generated/server";
 import { mutation, query } from "./_generated/server";
 import {
   getEmployeeByAuthUserId,
@@ -11,6 +12,48 @@ const activeBookingStatuses = new Set(["booked", "confirmed"]);
 
 function overlaps(aStart: number, aEnd: number, bStart: number, bEnd: number) {
   return aStart < bEnd && bStart < aEnd;
+}
+
+async function syncEmployeesFromWorkerRoles(ctx: MutationCtx) {
+  const roleDocs = await ctx.db.query("userRoles").collect();
+  const workerRoles = roleDocs.filter(
+    (roleDoc) => roleDoc.role === "medarbejder",
+  );
+
+  const now = Date.now();
+  for (const roleDoc of workerRoles) {
+    const existing = await ctx.db
+      .query("employees")
+      .withIndex("by_auth_user_id", (q) =>
+        q.eq("authUserId", roleDoc.authUserId),
+      )
+      .unique();
+    if (existing) {
+      continue;
+    }
+
+    const profile = await ctx.db
+      .query("userProfiles")
+      .withIndex("by_auth_user_id", (q) =>
+        q.eq("authUserId", roleDoc.authUserId),
+      )
+      .unique();
+
+    await ctx.db.insert("employees", {
+      authUserId: roleDoc.authUserId,
+      fullName:
+        profile?.fullName?.trim() ||
+        `Medarbejder ${String(roleDoc.authUserId).slice(-6)}`,
+      phone: profile?.phone,
+      email: profile?.email,
+      title: "Medarbejder",
+      bio: undefined,
+      avatarStorageId: undefined,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+  }
 }
 
 export const createEmployee = mutation({
@@ -60,8 +103,8 @@ export const listEmployeesWithAssignments = query({
 
     const salonById = new Map(salons.map((salon) => [salon._id, salon]));
 
-    return employees
-      .map((employee) => {
+    const rows = await Promise.all(
+      employees.map(async (employee) => {
         const employeeAssignments = assignments
           .filter((assignment) => assignment.employeeId === employee._id)
           .map((assignment) => ({
@@ -72,14 +115,35 @@ export const listEmployeesWithAssignments = query({
           }))
           .sort((a, b) => a.salonName.localeCompare(b.salonName, "da-DK"));
 
+        const avatarUrl = employee.avatarStorageId
+          ? await ctx.storage.getUrl(employee.avatarStorageId)
+          : null;
+
         return {
           ...employee,
+          avatarUrl,
           assignments: employeeAssignments,
           activeSalonCount: employeeAssignments.filter((item) => item.isActive)
             .length,
         };
-      })
+      }),
+    );
+
+    return rows
       .sort((a, b) => a.fullName.localeCompare(b.fullName, "da-DK"));
+  },
+});
+
+export const syncEmployeesFromWorkerRolesAdmin = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await requireAppRole(ctx, ["admin"]);
+
+    const before = await ctx.db.query("employees").collect();
+    await syncEmployeesFromWorkerRoles(ctx);
+    const after = await ctx.db.query("employees").collect();
+
+    return { createdCount: Math.max(0, after.length - before.length) };
   },
 });
 
@@ -111,8 +175,15 @@ export const getEmployeeAdminDetail = query({
       .withIndex("by_employee", (q) => q.eq("employeeId", args.employeeId))
       .collect();
 
+    const avatarUrl = employee.avatarStorageId
+      ? await ctx.storage.getUrl(employee.avatarStorageId)
+      : null;
+
     return {
-      employee,
+      employee: {
+        ...employee,
+        avatarUrl,
+      },
       assignments: assignments
         .map((assignment) => ({
           ...assignment,
@@ -311,6 +382,7 @@ export const updateEmployee = mutation({
     email: v.optional(v.string()),
     title: v.optional(v.string()),
     bio: v.optional(v.string()),
+    avatarStorageId: v.optional(v.id("_storage")),
     isActive: v.boolean(),
   },
   handler: async (ctx, args) => {
@@ -327,6 +399,7 @@ export const updateEmployee = mutation({
       email: args.email,
       title: args.title,
       bio: args.bio,
+      avatarStorageId: args.avatarStorageId,
       isActive: args.isActive,
       updatedAt: Date.now(),
     });

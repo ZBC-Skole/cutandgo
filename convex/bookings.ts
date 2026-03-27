@@ -10,6 +10,7 @@ import {
 } from "./lib/authz";
 
 const activeBookingStatuses = new Set(["booked", "confirmed"]);
+const referenceSlots = ["Forfra", "Side", "Bagfra"] as const;
 type Ctx = QueryCtx | MutationCtx;
 
 function overlaps(aStart: number, aEnd: number, bStart: number, bEnd: number) {
@@ -617,6 +618,38 @@ export const getViewerBookingDetail = query({
       )
     ).filter((value): value is string => Boolean(value));
 
+    const orderedReferenceUris: Array<string | null> = [null, null, null];
+    const slotByCaption = new Map(
+      referenceSlots.map((caption, index) => [caption, index]),
+    );
+
+    referencePhotoUris.forEach((uri, index) => {
+      const photo = photos[index];
+      if (!photo) {
+        return;
+      }
+
+      const mappedSlot =
+        photo.caption &&
+        slotByCaption.has(photo.caption as (typeof referenceSlots)[number])
+          ? slotByCaption.get(photo.caption as (typeof referenceSlots)[number])
+          : undefined;
+
+      if (
+        mappedSlot !== undefined &&
+        mappedSlot >= 0 &&
+        mappedSlot < orderedReferenceUris.length
+      ) {
+        orderedReferenceUris[mappedSlot] = uri;
+        return;
+      }
+
+      const firstEmpty = orderedReferenceUris.findIndex((value) => !value);
+      if (firstEmpty >= 0) {
+        orderedReferenceUris[firstEmpty] = uri;
+      }
+    });
+
     return {
       id: booking._id,
       serviceName: booking.serviceNameSnapshot,
@@ -632,7 +665,7 @@ export const getViewerBookingDetail = query({
       longitude: salon?.longitude,
       status: booking.status,
       customerNote: booking.customerNote ?? null,
-      referencePhotoUris,
+      referencePhotoUris: orderedReferenceUris,
     };
   },
 });

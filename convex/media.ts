@@ -56,6 +56,35 @@ export const attachBookingPhoto = mutation({
       throw new Error("Du har ikke adgang til at tilføje billeder til bookingen.");
     }
 
+    if (args.photoType === "reference") {
+      const existingReferences = await ctx.db
+        .query("appointmentPhotos")
+        .withIndex("by_booking_type", (q) =>
+          q.eq("bookingId", args.bookingId).eq("photoType", "reference"),
+        )
+        .collect();
+
+      const existingForCaption =
+        args.caption
+          ? existingReferences.find((item) => item.caption === args.caption)
+          : null;
+
+      if (existingForCaption) {
+        await ctx.db.patch(existingForCaption._id, {
+          storageId: args.storageId,
+          uploadedByAuthUserId: authUser._id,
+          createdAt: Date.now(),
+        });
+        return existingForCaption._id;
+      }
+
+      if (existingReferences.length >= 3) {
+        throw new Error(
+          "Du kan maks gemme 3 referencebilleder. Udskift et eksisterende billede.",
+        );
+      }
+    }
+
     return await ctx.db.insert("appointmentPhotos", {
       bookingId: args.bookingId,
       storageId: args.storageId,

@@ -46,6 +46,36 @@ export const setRoleForUser = mutation({
       .withIndex("by_auth_user_id", (q) => q.eq("authUserId", args.authUserId))
       .unique();
 
+    if (args.role === "medarbejder") {
+      const existingEmployee = await ctx.db
+        .query("employees")
+        .withIndex("by_auth_user_id", (q) => q.eq("authUserId", args.authUserId))
+        .unique();
+
+      if (!existingEmployee) {
+        const profile = await ctx.db
+          .query("userProfiles")
+          .withIndex("by_auth_user_id", (q) => q.eq("authUserId", args.authUserId))
+          .unique();
+        const now = Date.now();
+
+        await ctx.db.insert("employees", {
+          authUserId: args.authUserId,
+          fullName:
+            profile?.fullName?.trim() ||
+            `Medarbejder ${String(args.authUserId).slice(-6)}`,
+          phone: profile?.phone,
+          email: profile?.email,
+          title: "Medarbejder",
+          bio: undefined,
+          avatarStorageId: undefined,
+          isActive: true,
+          createdAt: now,
+          updatedAt: now,
+        });
+      }
+    }
+
     if (existing) {
       await ctx.db.patch(existing._id, { role: args.role, updatedAt: Date.now() });
       return existing._id;

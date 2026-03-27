@@ -78,14 +78,6 @@ export function BookingDetailsSheetScreen() {
   }
 
   async function pickImageForSlot(slotIndex: number) {
-    if (referencePhotoUris[slotIndex]) {
-      Alert.alert(
-        "Billede findes allerede",
-        "Udskiftning af referencebilleder kommer senere. Dette billede er allerede gemt i systemet.",
-      );
-      return;
-    }
-
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
       Alert.alert(
@@ -250,7 +242,8 @@ export function BookingDetailsSheetScreen() {
             Reference billeder
           </Text>
           <Text selectable className="text-sm text-neutral-600">
-            Upload op til 3 billeder. De gemmes direkte på bookingen i systemet.
+            Upload op til 3 billeder. Tryk på et slot for at tilføje eller
+            udskifte billedet direkte på bookingen.
           </Text>
 
           <View className="flex-row gap-2">

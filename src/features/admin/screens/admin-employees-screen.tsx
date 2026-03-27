@@ -16,6 +16,8 @@ import type {
 } from "@/features/admin/onboarding/types";
 import { Link } from "expo-router";
 import { useMutation, useQuery } from "convex/react";
+import { Image } from "expo-image";
+import * as ImagePicker from "expo-image-picker";
 import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
@@ -26,13 +28,15 @@ import {
   useWindowDimensions,
 } from "react-native";
 
-type SelectedEmployee = Id<"employees"> | "new" | null;
+type SelectedEmployee = Id<"employees"> | null;
 type EmployeeEditorState = {
   fullName: string;
   email: string;
   phone: string;
   title: string;
   bio: string;
+  avatarStorageId: Id<"_storage"> | null;
+  avatarPreviewUrl: string | null;
   isActive: boolean;
 };
 
@@ -49,6 +53,8 @@ const EMPTY_EDITOR: EmployeeEditorState = {
   phone: "",
   title: "",
   bio: "",
+  avatarStorageId: null,
+  avatarPreviewUrl: null,
   isActive: true,
 };
 
@@ -119,18 +125,24 @@ export function AdminEmployeesScreen() {
   const [week, setWeek] = useState<DayDraft[]>(createDefaultWeek());
   const [editor, setEditor] = useState<EmployeeEditorState>(EMPTY_EDITOR);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
 
-  const createEmployee = useMutation(api.staff.createEmployee);
   const updateEmployee = useMutation(api.staff.updateEmployee);
   const assignEmployee = useMutation(api.staff.assignEmployeeToSalon);
   const setWorkingHours = useMutation(api.staff.setWorkingHours);
+  const createUploadUrl = useMutation(api.media.createUploadUrl);
+  const syncEmployeesFromWorkerRoles = useMutation(
+    api.staff.syncEmployeesFromWorkerRolesAdmin,
+  );
 
   const detail = useQuery(
     api.staff.getEmployeeAdminDetail,
-    selectedEmployeeId && selectedEmployeeId !== "new"
-      ? { employeeId: selectedEmployeeId }
-      : "skip",
+    selectedEmployeeId ? { employeeId: selectedEmployeeId } : "skip",
   );
+
+  useEffect(() => {
+    void syncEmployeesFromWorkerRoles({});
+  }, [syncEmployeesFromWorkerRoles]);
 
   useEffect(() => {
     if (!employees) {
@@ -138,7 +150,7 @@ export function AdminEmployeesScreen() {
     }
 
     if (!selectedEmployeeId) {
-      setSelectedEmployeeId(employees[0]?._id ?? "new");
+      setSelectedEmployeeId(employees[0]?._id ?? null);
     }
   }, [employees, selectedEmployeeId]);
 
@@ -156,10 +168,10 @@ export function AdminEmployeesScreen() {
   }, [salons]);
 
   useEffect(() => {
-    if (selectedEmployeeId === "new") {
+    if (!selectedEmployeeId) {
       setEditor(EMPTY_EDITOR);
-      setSelectedRole("stylist");
       setWeek(createDefaultWeek());
+      setSelectedRole("stylist");
       return;
     }
 
@@ -173,6 +185,8 @@ export function AdminEmployeesScreen() {
       phone: detail.employee.phone ?? "",
       title: detail.employee.title ?? "",
       bio: detail.employee.bio ?? "",
+      avatarStorageId: detail.employee.avatarStorageId ?? null,
+      avatarPreviewUrl: detail.employee.avatarUrl ?? null,
       isActive: detail.employee.isActive,
     });
 
@@ -182,12 +196,6 @@ export function AdminEmployeesScreen() {
   }, [detail, salons, selectedEmployeeId]);
 
   useEffect(() => {
-    if (selectedEmployeeId === "new") {
-      setWeek(createDefaultWeek());
-      setSelectedRole("stylist");
-      return;
-    }
-
     if (!detail || !selectedSalonId) {
       return;
     }
@@ -249,43 +257,28 @@ export function AdminEmployeesScreen() {
       Alert.alert("Manglende navn", "Udfyld medarbejderens navn først.");
       return;
     }
+    if (!selectedEmployeeId) {
+      Alert.alert(
+        "Ingen medarbejder valgt",
+        "Vælg en medarbejder fra listen først.",
+      );
+      return;
+    }
 
     try {
       setIsSaving(true);
 
-      let employeeId: Id<"employees">;
-      if (!selectedEmployeeId || selectedEmployeeId === "new") {
-        employeeId = await createEmployee({
-          fullName: editor.fullName.trim(),
-          email: sanitizeOptional(editor.email),
-          phone: sanitizeOptional(editor.phone),
-          title: sanitizeOptional(editor.title),
-          bio: sanitizeOptional(editor.bio),
-        });
-
-        if (!editor.isActive) {
-          await updateEmployee({
-            employeeId,
-            fullName: editor.fullName.trim(),
-            email: sanitizeOptional(editor.email),
-            phone: sanitizeOptional(editor.phone),
-            title: sanitizeOptional(editor.title),
-            bio: sanitizeOptional(editor.bio),
-            isActive: false,
-          });
-        }
-      } else {
-        employeeId = selectedEmployeeId;
-        await updateEmployee({
-          employeeId,
-          fullName: editor.fullName.trim(),
-          email: sanitizeOptional(editor.email),
-          phone: sanitizeOptional(editor.phone),
-          title: sanitizeOptional(editor.title),
-          bio: sanitizeOptional(editor.bio),
-          isActive: editor.isActive,
-        });
-      }
+      const employeeId = selectedEmployeeId;
+      await updateEmployee({
+        employeeId,
+        fullName: editor.fullName.trim(),
+        email: sanitizeOptional(editor.email),
+        phone: sanitizeOptional(editor.phone),
+        title: sanitizeOptional(editor.title),
+        bio: sanitizeOptional(editor.bio),
+        avatarStorageId: editor.avatarStorageId ?? undefined,
+        isActive: editor.isActive,
+      });
 
       if (selectedSalonId) {
         await assignEmployee({
@@ -317,6 +310,75 @@ export function AdminEmployeesScreen() {
     }
   }
 
+  async function handlePickAvatar() {
+    if (!selectedEmployeeId) {
+      Alert.alert(
+        "Ingen medarbejder valgt",
+        "Vælg en medarbejder før du uploader billede.",
+      );
+      return;
+    }
+
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert(
+        "Tilladelse mangler",
+        "Giv adgang til billeder for at uploade avatar.",
+      );
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: "images",
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.9,
+    });
+    if (result.canceled) {
+      return;
+    }
+
+    const selectedPhotoUri = result.assets[0]?.uri;
+    if (!selectedPhotoUri) {
+      return;
+    }
+
+    try {
+      setIsUploadingAvatar(true);
+      const uploadUrl = await createUploadUrl({});
+      const fileResponse = await fetch(selectedPhotoUri);
+      const blob = await fileResponse.blob();
+
+      const uploadResponse = await fetch(uploadUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": blob.type || "image/jpeg",
+        },
+        body: blob,
+      });
+      if (!uploadResponse.ok) {
+        throw new Error("Upload fejlede.");
+      }
+
+      const payload = (await uploadResponse.json()) as {
+        storageId?: Id<"_storage">;
+      };
+      if (!payload.storageId) {
+        throw new Error("Storage ID mangler efter upload.");
+      }
+
+      setEditor((current) => ({
+        ...current,
+        avatarStorageId: payload.storageId ?? null,
+        avatarPreviewUrl: selectedPhotoUri,
+      }));
+    } catch (error) {
+      Alert.alert("Kunne ikke uploade billede", String(error));
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  }
+
   const selectedAssignment = detail?.assignments.find(
     (item) => item.salonId === selectedSalonId,
   );
@@ -342,8 +404,8 @@ export function AdminEmployeesScreen() {
           Teamstyring
         </Text>
         <Text selectable className="text-sm leading-6 text-neutral-600">
-          Opret, redigér og tilknyt medarbejdere til saloner med arbejdstider i
-          et samlet, roligt flow.
+          Medarbejdere med rollen &quot;medarbejder&quot; dukker automatisk op
+          her. Vælg en profil og tilknyt salon, rolle og arbejdstider.
         </Text>
       </View>
 
@@ -402,7 +464,7 @@ export function AdminEmployeesScreen() {
         <View className={isCompact ? "gap-5" : "w-[320px] gap-5"}>
           <Surface
             title="Medarbejderliste"
-            subtitle="Søg i teamet eller opret en ny profil"
+            subtitle="Søg i teamet og vælg en profil"
           >
             <View className="gap-3">
               <AdminTextField
@@ -411,15 +473,10 @@ export function AdminEmployeesScreen() {
                 onChangeText={setSearch}
                 placeholder="Navn, titel, salon eller kontaktdata"
               />
-              <AdminButton
-                title="Ny medarbejder"
-                variant="secondary"
-                onPress={() => setSelectedEmployeeId("new")}
-              />
               {filteredEmployees.length === 0 ? (
                 <AdminEmptyState
                   title="Ingen medarbejdere matcher"
-                  description="Prøv en anden søgning eller opret en ny profil."
+                  description="Brugere med rollen 'medarbejder' vises automatisk her."
                 />
               ) : (
                 filteredEmployees.map((employee, index) => {
@@ -474,15 +531,46 @@ export function AdminEmployeesScreen() {
         <View className="flex-1 gap-5">
           <Surface
             title={
-              selectedEmployeeId === "new"
-                ? "Opret medarbejder"
-                : selectedEmployee
-                  ? `Redigér ${selectedEmployee.fullName}`
-                  : "Redigér medarbejder"
+              selectedEmployee
+                ? `Redigér ${selectedEmployee.fullName}`
+                : "Redigér medarbejder"
             }
             subtitle="Stamdata for den valgte profil"
           >
             <View className="gap-3">
+              <View className="items-start gap-2">
+                <Text
+                  selectable
+                  className="text-xs font-semibold text-neutral-600"
+                >
+                  Profilbillede
+                </Text>
+                <View
+                  className="h-20 w-20 overflow-hidden rounded-full bg-neutral-200"
+                  style={{ borderCurve: "continuous" }}
+                >
+                  {editor.avatarPreviewUrl ? (
+                    <Image
+                      source={editor.avatarPreviewUrl}
+                      style={{ width: "100%", height: "100%" }}
+                      contentFit="cover"
+                    />
+                  ) : (
+                    <View className="h-full w-full items-center justify-center">
+                      <Text selectable className="text-xs text-neutral-500">
+                        Ingen
+                      </Text>
+                    </View>
+                  )}
+                </View>
+                <AdminButton
+                  title={isUploadingAvatar ? "Uploader..." : "Vælg billede"}
+                  variant="secondary"
+                  onPress={handlePickAvatar}
+                  disabled={isUploadingAvatar || !selectedEmployeeId}
+                />
+              </View>
+
               <AdminTextField
                 label="Fulde navn"
                 value={editor.fullName}
