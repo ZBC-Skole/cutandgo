@@ -9,6 +9,7 @@ import {
 } from "@/features/overview/lib/date-time";
 import { overviewMapMode } from "@/features/overview/lib/map-mode";
 import { openRouteInMaps } from "@/features/overview/lib/open-route";
+import { useRole } from "@/hooks/use-role";
 import { useMutation, useQuery } from "convex/react";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
@@ -22,8 +23,11 @@ const referenceSlots = ["Forfra", "Side", "Bagfra"];
 export function BookingDetailsSheetScreen() {
   const parameters = useLocalSearchParams<{ id?: string | string[] }>();
   const [uploadingSlot, setUploadingSlot] = useState<number | null>(null);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const { hasRole } = useRole();
   const createUploadUrl = useMutation(api.media.createUploadUrl);
   const attachBookingPhoto = useMutation(api.media.attachBookingPhoto);
+  const cancelBooking = useMutation(api.bookings.cancelBooking);
 
   const appointmentId = Array.isArray(parameters.id)
     ? parameters.id[0]
@@ -64,6 +68,9 @@ export function BookingDetailsSheetScreen() {
   const startsAt = new Date(bookingDetail.startsAt);
   const endsAt = new Date(bookingDetail.endAt);
   const referencePhotoUris = bookingDetail.referencePhotoUris.slice(0, 3);
+  const isCancellableStatus =
+    bookingDetail.status === "booked" || bookingDetail.status === "confirmed";
+  const canCustomerCancel = hasRole("kunde") && isCancellableStatus;
 
   async function handleOpenRoute() {
     const opened = await openRouteInMaps({
@@ -141,6 +148,46 @@ export function BookingDetailsSheetScreen() {
     }
   }
 
+  function handleConfirmCancel() {
+    Alert.alert(
+      "Aflys tid",
+      "Er du sikker på, at du vil aflyse denne tid?",
+      [
+        { text: "Nej", style: "cancel" },
+        {
+          text: "Ja, aflys",
+          style: "destructive",
+          onPress: () => {
+            void handleCancelBooking();
+          },
+        },
+      ],
+      { cancelable: true },
+    );
+  }
+
+  async function handleCancelBooking() {
+    if (!canCustomerCancel || isCancelling) {
+      return;
+    }
+
+    try {
+      setIsCancelling(true);
+      await cancelBooking({
+        bookingId: bookingDetail.id as Id<"bookings">,
+      });
+      Alert.alert("Tiden er aflyst", "Din booking er nu aflyst.");
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Kunne ikke aflyse tiden. Prøv igen om et øjeblik.";
+      Alert.alert("Aflysning fejlede", message);
+    } finally {
+      setIsCancelling(false);
+    }
+  }
+
   return (
     <>
       <Stack.Screen options={{ title: "Booking detaljer" }} />
@@ -199,6 +246,22 @@ export function BookingDetailsSheetScreen() {
               </Text>
             ) : null}
           </View>
+
+          {canCustomerCancel ? (
+            <Pressable
+              accessibilityRole="button"
+              disabled={isCancelling}
+              onPress={handleConfirmCancel}
+              className={`items-center rounded-xl px-4 py-3 ${
+                isCancelling ? "bg-red-300" : "bg-red-600"
+              }`}
+              style={{ borderCurve: "continuous" }}
+            >
+              <Text selectable className="text-sm font-semibold text-white">
+                {isCancelling ? "Aflyser..." : "Aflys tid"}
+              </Text>
+            </Pressable>
+          ) : null}
         </View>
 
         <View
