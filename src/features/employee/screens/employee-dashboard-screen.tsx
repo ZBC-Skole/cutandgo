@@ -27,6 +27,8 @@ function roundToNextQuarter(timestamp: number) {
   return Math.ceil(timestamp / quarter) * quarter;
 }
 
+const activeBookingStatuses = new Set(["booked", "confirmed"]);
+
 export function EmployeeDashboardScreen() {
   const schedule = useQuery(api.bookings.getMyEmployeeSchedule, {});
   const salons = useQuery(api.staff.getMyActiveSalons, {});
@@ -51,13 +53,22 @@ export function EmployeeDashboardScreen() {
   const list = useMemo(() => schedule ?? [], [schedule]);
 
   const upcoming = useMemo(
-    () => list.filter((item) => item.endAt >= Date.now()).slice(0, 30),
+    () =>
+      list
+        .filter(
+          (item) =>
+            item.endAt >= Date.now() && activeBookingStatuses.has(item.status),
+        )
+        .slice(0, 30),
     [list],
   );
   const past = useMemo(
     () =>
       list
-        .filter((item) => item.endAt < Date.now())
+        .filter(
+          (item) =>
+            item.endAt < Date.now() || !activeBookingStatuses.has(item.status),
+        )
         .slice(-10)
         .reverse(),
     [list],

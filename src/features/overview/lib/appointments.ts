@@ -8,16 +8,27 @@ export function splitOverviewAppointments(
   now: Date,
 ) {
   const nowMs = now.getTime();
+  const isUpcomingStatus = (status: OverviewAppointment["status"]) =>
+    status === "booked" || status === "confirmed";
 
   const upcoming = appointments
-    .filter((appointment) => new Date(appointment.startsAt).getTime() > nowMs)
+    .filter((appointment) => {
+      const startsAtMs = new Date(appointment.startsAt).getTime();
+      return startsAtMs > nowMs && isUpcomingStatus(appointment.status);
+    })
     .sort(
       (left, right) =>
         new Date(left.startsAt).getTime() - new Date(right.startsAt).getTime(),
     );
 
   const past = appointments
-    .filter((appointment) => new Date(appointment.startsAt).getTime() <= nowMs)
+    .filter((appointment) => {
+      const startsAtMs = new Date(appointment.startsAt).getTime();
+      if (startsAtMs <= nowMs) {
+        return true;
+      }
+      return !isUpcomingStatus(appointment.status);
+    })
     .sort(
       (left, right) =>
         new Date(right.startsAt).getTime() - new Date(left.startsAt).getTime(),

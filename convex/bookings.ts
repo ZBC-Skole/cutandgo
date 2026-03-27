@@ -12,6 +12,23 @@ import {
 const activeBookingStatuses = new Set(["booked", "confirmed"]);
 const referenceSlots = ["Forfra", "Side", "Bagfra"] as const;
 type Ctx = QueryCtx | MutationCtx;
+const BUSINESS_TIME_ZONE = "Europe/Copenhagen";
+const datePartsFormatter = new Intl.DateTimeFormat("en-CA", {
+  timeZone: BUSINESS_TIME_ZONE,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+const dateTimePartsFormatter = new Intl.DateTimeFormat("en-CA", {
+  timeZone: BUSINESS_TIME_ZONE,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hour12: false,
+});
 
 function overlaps(aStart: number, aEnd: number, bStart: number, bEnd: number) {
   return aStart < bEnd && bStart < aEnd;
@@ -41,6 +58,43 @@ function getWeekdayFromDayStart(dayStartTs: number) {
   // `dayStartTs` comes from client-local midnight.
   // +12h avoids timezone boundary drift when read on server.
   return new Date(dayStartTs + 12 * 60 * 60 * 1000).getUTCDay();
+}
+
+function getNumericPart(
+  parts: Intl.DateTimeFormatPart[],
+  type: "year" | "month" | "day" | "hour" | "minute" | "second",
+) {
+  const value = parts.find((part) => part.type === type)?.value;
+  if (!value) {
+    throw new Error(`Mangler dato-del: ${type}`);
+  }
+  return Number(value);
+}
+
+function getTimeZoneOffsetAt(timestamp: number) {
+  const parts = dateTimePartsFormatter.formatToParts(new Date(timestamp));
+  const year = getNumericPart(parts, "year");
+  const month = getNumericPart(parts, "month");
+  const day = getNumericPart(parts, "day");
+  const hour = getNumericPart(parts, "hour");
+  const minute = getNumericPart(parts, "minute");
+  const second = getNumericPart(parts, "second");
+  const asUtc = Date.UTC(year, month - 1, day, hour, minute, second);
+  return asUtc - timestamp;
+}
+
+function getBusinessDayBounds(timestamp: number) {
+  const parts = datePartsFormatter.formatToParts(new Date(timestamp));
+  const year = getNumericPart(parts, "year");
+  const month = getNumericPart(parts, "month");
+  const day = getNumericPart(parts, "day");
+
+  const utcMidnight = Date.UTC(year, month - 1, day, 0, 0, 0, 0);
+  const nextUtcMidnight = Date.UTC(year, month - 1, day + 1, 0, 0, 0, 0);
+
+  const dayStart = utcMidnight - getTimeZoneOffsetAt(utcMidnight);
+  const dayEnd = nextUtcMidnight - getTimeZoneOffsetAt(nextUtcMidnight);
+  return { dayStart, dayEnd };
 }
 
 async function getEmployeeDayContext(
@@ -317,17 +371,14 @@ export const createBooking = mutation({
       service.bufferAfterMinutes;
     const endAt = args.startAt + totalMinutes * 60_000;
 
-    const dayStart = new Date(args.startAt);
-    dayStart.setHours(0, 0, 0, 0);
-    const dayEnd = new Date(dayStart.getTime());
-    dayEnd.setDate(dayEnd.getDate() + 1);
+    const { dayStart, dayEnd } = getBusinessDayBounds(args.startAt);
 
     const dayContext = await getEmployeeDayContext(
       ctx,
       args.employeeId,
       args.salonId,
-      dayStart.getTime(),
-      dayEnd.getTime(),
+      dayStart,
+      dayEnd,
     );
     if (!dayContext) {
       throw new Error("Frisøren har ikke arbejdstid denne dag.");
@@ -793,17 +844,14 @@ export const rescheduleMyBooking = mutation({
       service.bufferAfterMinutes;
     const newEndAt = args.newStartAt + totalMinutes * 60_000;
 
-    const dayStart = new Date(args.newStartAt);
-    dayStart.setHours(0, 0, 0, 0);
-    const dayEnd = new Date(dayStart.getTime());
-    dayEnd.setDate(dayEnd.getDate() + 1);
+    const { dayStart, dayEnd } = getBusinessDayBounds(args.newStartAt);
 
     const dayContext = await getEmployeeDayContext(
       ctx,
       employee._id,
       booking.salonId,
-      dayStart.getTime(),
-      dayEnd.getTime(),
+      dayStart,
+      dayEnd,
       booking._id,
     );
     if (!dayContext) {
@@ -815,24 +863,24 @@ export const rescheduleMyBooking = mutation({
       .withIndex("by_salon_weekday", (q) =>
         q
           .eq("salonId", booking.salonId)
-          .eq("weekday", getWeekdayFromDayStart(dayStart.getTime())),
+          .eq("weekday", getWeekdayFromDayStart(dayStart)),
       )
       .unique();
     if (!openingHoursForDay || openingHoursForDay.isClosed) {
       throw new Error("Salonen er lukket på den valgte dag.");
     }
 
-    const salonOpenTs = applyTimeToTimestamp(dayStart.getTime(), openingHoursForDay.opensAt);
+    const salonOpenTs = applyTimeToTimestamp(dayStart, openingHoursForDay.opensAt);
     const salonCloseTs = applyTimeToTimestamp(
-      dayStart.getTime(),
+      dayStart,
       openingHoursForDay.closesAt,
     );
     const employeeStartTs = applyTimeToTimestamp(
-      dayStart.getTime(),
+      dayStart,
       dayContext.workingHour.startAt,
     );
     const employeeEndTs = applyTimeToTimestamp(
-      dayStart.getTime(),
+      dayStart,
       dayContext.workingHour.endAt,
     );
     const availableFromTs = Math.max(salonOpenTs, employeeStartTs);

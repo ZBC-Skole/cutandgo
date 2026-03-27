@@ -8,6 +8,13 @@ export type OverviewAppointment = {
   startsAt: string;
   durationMinutes: number;
   address: string;
+  status?:
+    | "booked"
+    | "confirmed"
+    | "completed"
+    | "cancelled_by_customer"
+    | "cancelled_by_salon"
+    | "no_show";
   latitude?: number;
   longitude?: number;
   referencePhotoUris?: string[];

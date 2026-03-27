@@ -8,12 +8,63 @@ const periodKeyValidator = v.union(
   v.literal("90d"),
 );
 
+const BUSINESS_TIME_ZONE = "Europe/Copenhagen";
+const datePartsFormatter = new Intl.DateTimeFormat("en-CA", {
+  timeZone: BUSINESS_TIME_ZONE,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+const dateTimePartsFormatter = new Intl.DateTimeFormat("en-CA", {
+  timeZone: BUSINESS_TIME_ZONE,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hour12: false,
+});
+
+function getNumericPart(
+  parts: Intl.DateTimeFormatPart[],
+  type: "year" | "month" | "day" | "hour" | "minute" | "second",
+) {
+  const value = parts.find((part) => part.type === type)?.value;
+  if (!value) {
+    throw new Error(`Mangler dato-del: ${type}`);
+  }
+  return Number(value);
+}
+
+function getTimeZoneOffsetAt(timestamp: number) {
+  const parts = dateTimePartsFormatter.formatToParts(new Date(timestamp));
+  const year = getNumericPart(parts, "year");
+  const month = getNumericPart(parts, "month");
+  const day = getNumericPart(parts, "day");
+  const hour = getNumericPart(parts, "hour");
+  const minute = getNumericPart(parts, "minute");
+  const second = getNumericPart(parts, "second");
+  const asUtc = Date.UTC(year, month - 1, day, hour, minute, second);
+  return asUtc - timestamp;
+}
+
+function getEndOfBusinessDay(timestamp: number) {
+  const parts = datePartsFormatter.formatToParts(new Date(timestamp));
+  const year = getNumericPart(parts, "year");
+  const month = getNumericPart(parts, "month");
+  const day = getNumericPart(parts, "day");
+  const nextUtcMidnight = Date.UTC(year, month - 1, day + 1, 0, 0, 0, 0);
+  const nextBusinessMidnight = nextUtcMidnight - getTimeZoneOffsetAt(nextUtcMidnight);
+  return nextBusinessMidnight - 1;
+}
+
 function getPeriodRange(periodKey: "7d" | "30d" | "90d") {
-  const now = Date.now();
+  const periodEnd = getEndOfBusinessDay(Date.now());
   const days = periodKey === "7d" ? 7 : periodKey === "30d" ? 30 : 90;
   return {
-    fromTs: now - days * 24 * 60 * 60 * 1000,
-    toTs: now,
+    fromTs: periodEnd - days * 24 * 60 * 60 * 1000 + 1,
+    toTs: periodEnd,
   };
 }
 
@@ -106,6 +157,7 @@ export const getAdminDashboard = query({
     const employees = await ctx.db.query("employees").collect();
     const assignments = await ctx.db.query("employeeSalonRoles").collect();
     const { fromTs, toTs } = getPeriodRange(args.periodKey);
+    const toTsExclusive = toTs + 1;
 
     const scopedSalonIds = args.salonId
       ? new Set([args.salonId])
@@ -118,14 +170,14 @@ export const getAdminDashboard = query({
             q
               .eq("salonId", args.salonId!)
               .gte("startAt", fromTs)
-              .lt("startAt", toTs),
+              .lt("startAt", toTsExclusive),
           )
           .collect()
       : (await ctx.db.query("bookings").collect()).filter(
           (booking) =>
             scopedSalonIds.has(booking.salonId) &&
             booking.startAt >= fromTs &&
-            booking.startAt < toTs,
+            booking.startAt < toTsExclusive,
         );
 
     const completedBookings = bookings.filter(
