@@ -52,6 +52,15 @@ export default defineSchema({
     .index("by_auth_user_id", ["authUserId"])
     .index("by_preferred_salon", ["preferredSalonId"]),
 
+  employeeFirstLoginRequirements: defineTable({
+    authUserId: v.string(),
+    mustChangePassword: v.boolean(),
+    temporaryPinIssuedAt: v.number(),
+    completedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_auth_user_id", ["authUserId"]),
+
   adminOnboardingStates: defineTable({
     authUserId: v.string(),
     completedAt: v.optional(v.number()),

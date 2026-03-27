@@ -1,5 +1,6 @@
 import LoadingView from "@/components/ui/loading-view";
 import {
+  CreateEmployeeAccountSection,
   EmployeeAssignmentSection,
   EmployeeProfileSection,
   EmployeesListSection,
@@ -76,6 +77,21 @@ export function AdminEmployeesScreen() {
 
       <View className={`gap-5 ${isCompact ? "" : "flex-row items-start"}`}>
         <View className={isCompact ? "gap-5" : "w-[320px] gap-5"}>
+          <CreateEmployeeAccountSection
+            form={state.createForm}
+            onFormChange={(patch) =>
+              state.setCreateForm((current) => ({
+                ...current,
+                ...patch,
+              }))
+            }
+            isCreating={state.isCreatingEmployee}
+            latestCreatedCredentials={state.latestCreatedCredentials}
+            onCreate={() => {
+              void state.handleCreateEmployeeAccount();
+            }}
+          />
+
           <EmployeesListSection
             search={state.search}
             onSearch={state.setSearch}

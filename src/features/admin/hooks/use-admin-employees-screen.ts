@@ -24,6 +24,11 @@ export type EmployeeEditorState = {
 };
 
 export type EmployeeRoleOption = { label: string; value: EmployeeAssignRole };
+export type CreateEmployeeFormState = {
+  fullName: string;
+  email: string;
+  phone: string;
+};
 
 export const ROLE_OPTIONS: EmployeeRoleOption[] = [
   { label: "Owner", value: "owner" },
@@ -41,6 +46,12 @@ const EMPTY_EDITOR: EmployeeEditorState = {
   avatarStorageId: null,
   avatarPreviewUrl: null,
   isActive: true,
+};
+
+const EMPTY_CREATE_FORM: CreateEmployeeFormState = {
+  fullName: "",
+  email: "",
+  phone: "",
 };
 
 function sanitizeOptional(value: string) {
@@ -64,9 +75,19 @@ export function useAdminEmployeesScreen() {
     useState<EmployeeAssignRole>("stylist");
   const [week, setWeek] = useState<DayDraft[]>(createDefaultWeek());
   const [editor, setEditor] = useState<EmployeeEditorState>(EMPTY_EDITOR);
+  const [createForm, setCreateForm] =
+    useState<CreateEmployeeFormState>(EMPTY_CREATE_FORM);
+  const [isCreatingEmployee, setIsCreatingEmployee] = useState(false);
+  const [latestCreatedCredentials, setLatestCreatedCredentials] = useState<{
+    email: string;
+    temporaryPin: string;
+  } | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
 
+  const createEmployee = useMutation(
+    api.backend.domains.staff.index.createEmployee,
+  );
   const updateEmployee = useMutation(
     api.backend.domains.staff.index.updateEmployee,
   );
@@ -254,6 +275,41 @@ export function useAdminEmployeesScreen() {
     }
   }
 
+  async function handleCreateEmployeeAccount() {
+    if (!createForm.fullName.trim()) {
+      Alert.alert("Manglende navn", "Udfyld medarbejderens navn først.");
+      return;
+    }
+    if (!createForm.email.trim()) {
+      Alert.alert("Manglende email", "Udfyld medarbejderens email først.");
+      return;
+    }
+
+    try {
+      setIsCreatingEmployee(true);
+      const result = await createEmployee({
+        fullName: createForm.fullName.trim(),
+        email: createForm.email.trim(),
+        phone: sanitizeOptional(createForm.phone),
+      });
+
+      setSelectedEmployeeId(result.employeeId);
+      setCreateForm(EMPTY_CREATE_FORM);
+      setLatestCreatedCredentials({
+        email: result.email,
+        temporaryPin: result.temporaryPin,
+      });
+      Alert.alert(
+        "Medarbejder oprettet",
+        "Login er oprettet med midlertidig PIN. Del oplysningerne sikkert.",
+      );
+    } catch (error) {
+      Alert.alert("Kunne ikke oprette medarbejder", String(error));
+    } finally {
+      setIsCreatingEmployee(false);
+    }
+  }
+
   async function handlePickAvatar() {
     if (!selectedEmployeeId) {
       Alert.alert(
@@ -347,10 +403,15 @@ export function useAdminEmployeesScreen() {
     setWeek,
     editor,
     setEditor,
+    createForm,
+    setCreateForm,
+    isCreatingEmployee,
+    latestCreatedCredentials,
     isSaving,
     isUploadingAvatar,
     selectedAssignment,
     selectedEmployee,
+    handleCreateEmployeeAccount,
     handleSave,
     handlePickAvatar,
   };

@@ -8,6 +8,7 @@ import {
   AdminTextField,
 } from "@/features/admin/components/admin-ui";
 import type {
+  CreateEmployeeFormState,
   EmployeeEditorState,
   EmployeeRoleOption,
 } from "@/features/admin/hooks/use-admin-employees-screen";
@@ -189,6 +190,77 @@ export function EmployeesListSection({
             );
           })
         )}
+      </View>
+    </EmployeeSurface>
+  );
+}
+
+export function CreateEmployeeAccountSection({
+  form,
+  onFormChange,
+  isCreating,
+  latestCreatedCredentials,
+  onCreate,
+}: {
+  form: CreateEmployeeFormState;
+  onFormChange: (patch: Partial<CreateEmployeeFormState>) => void;
+  isCreating: boolean;
+  latestCreatedCredentials: { email: string; temporaryPin: string } | null;
+  onCreate: () => void;
+}) {
+  return (
+    <EmployeeSurface
+      title="Opret medarbejder-login"
+      subtitle="Der oprettes Better Auth-konto med rollen medarbejder og midlertidig PIN."
+    >
+      <View className="gap-3">
+        <AdminTextField
+          label="Fulde navn"
+          value={form.fullName}
+          onChangeText={(value) => onFormChange({ fullName: value })}
+          placeholder="Emma Jensen"
+          autoCapitalize="words"
+        />
+        <AdminTextField
+          label="Email"
+          value={form.email}
+          onChangeText={(value) => onFormChange({ email: value })}
+          placeholder="emma@cutandgo.dk"
+          keyboardType="email-address"
+          autoCapitalize="none"
+        />
+        <AdminTextField
+          label="Telefon (valgfri)"
+          value={form.phone}
+          onChangeText={(value) => onFormChange({ phone: value })}
+          placeholder="+45 12 34 56 78"
+          keyboardType="phone-pad"
+        />
+        <AdminButton
+          title={isCreating ? "Opretter..." : "Opret medarbejder"}
+          onPress={onCreate}
+          disabled={isCreating}
+        />
+
+        {latestCreatedCredentials ? (
+          <View
+            className="gap-1 rounded-2xl border border-emerald-200 bg-emerald-50 p-3"
+            style={{ borderCurve: "continuous" }}
+          >
+            <Text selectable className="text-xs font-semibold text-emerald-800">
+              Medarbejder-login oprettet
+            </Text>
+            <Text selectable className="text-xs text-emerald-900">
+              Email: {latestCreatedCredentials.email}
+            </Text>
+            <Text selectable className="text-xs text-emerald-900">
+              Midlertidig PIN: {latestCreatedCredentials.temporaryPin}
+            </Text>
+            <Text selectable className="text-xs text-emerald-700">
+              Medarbejderen skal vælge ny adgangskode ved første login.
+            </Text>
+          </View>
+        ) : null}
       </View>
     </EmployeeSurface>
   );

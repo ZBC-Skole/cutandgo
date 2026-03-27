@@ -253,6 +253,9 @@ export function useAdminOnboarding() {
       if (!selectedEmployeeId && !employeeForm.fullName.trim()) {
         return "Vælg en medarbejder eller indtast navn for en ny.";
       }
+      if (!selectedEmployeeId && !employeeForm.email.trim()) {
+        return "Indtast email for ny medarbejder.";
+      }
       return null;
     }
 
@@ -276,6 +279,7 @@ export function useAdminOnboarding() {
     return null;
   }, [
     categoryForm.name,
+    employeeForm.email,
     employeeForm.fullName,
     salonForm.latitude,
     salonForm.longitude,

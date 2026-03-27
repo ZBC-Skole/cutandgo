@@ -31,6 +31,7 @@ import type * as backend_domains_staff_queries from "../backend/domains/staff/qu
 import type * as backend_domains_staff_shared from "../backend/domains/staff/shared.js";
 import type * as backend_domains_tasks_functions from "../backend/domains/tasks/functions.js";
 import type * as backend_domains_tasks_index from "../backend/domains/tasks/index.js";
+import type * as backend_domains_users_employee_first_login from "../backend/domains/users/employee_first_login.js";
 import type * as backend_domains_users_index from "../backend/domains/users/index.js";
 import type * as backend_domains_users_profiles from "../backend/domains/users/profiles.js";
 import type * as backend_domains_users_roles from "../backend/domains/users/roles.js";
@@ -67,6 +68,7 @@ declare const fullApi: ApiFromModules<{
   "backend/domains/staff/shared": typeof backend_domains_staff_shared;
   "backend/domains/tasks/functions": typeof backend_domains_tasks_functions;
   "backend/domains/tasks/index": typeof backend_domains_tasks_index;
+  "backend/domains/users/employee_first_login": typeof backend_domains_users_employee_first_login;
   "backend/domains/users/index": typeof backend_domains_users_index;
   "backend/domains/users/profiles": typeof backend_domains_users_profiles;
   "backend/domains/users/roles": typeof backend_domains_users_roles;

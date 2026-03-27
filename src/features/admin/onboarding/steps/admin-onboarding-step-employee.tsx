@@ -33,7 +33,7 @@ export function AdminOnboardingStepEmployee(props: EmployeeStepProps) {
   return (
     <Section
       title="3. Opret og tilknyt medarbejder"
-      subtitle="Opret én medarbejder og tilknyt til salonen. Når du fortsætter, gemmer vi tilknytningen."
+      subtitle="Opret én medarbejder med login. Der laves en midlertidig PIN, og medarbejderen bliver tvunget til at vælge ny adgangskode ved første login."
     >
       <Field
         label="Fulde navn"

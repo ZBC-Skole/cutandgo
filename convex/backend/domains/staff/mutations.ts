@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation } from "../../../_generated/server";
+import { createAuth } from "../../../auth";
 import {
   getEmployeeByAuthUserId,
   requireAppRole,
@@ -8,12 +9,19 @@ import {
 } from "../../security/authz";
 import { activeBookingStatuses, overlaps, syncEmployeesFromWorkerRoles } from "./shared";
 
+function normalizeEmail(value: string | undefined) {
+  return value?.trim().toLowerCase();
+}
+
+function generateTemporaryPin() {
+  return String(Math.floor(10000000 + Math.random() * 90000000));
+}
+
 export const createEmployee = mutation({
   args: {
     fullName: v.string(),
-    authUserId: v.optional(v.string()),
+    email: v.string(),
     phone: v.optional(v.string()),
-    email: v.optional(v.string()),
     title: v.optional(v.string()),
     bio: v.optional(v.string()),
     avatarStorageId: v.optional(v.id("_storage")),
@@ -21,13 +29,124 @@ export const createEmployee = mutation({
   handler: async (ctx, args) => {
     await requireAppRole(ctx, ["admin"]);
 
+    const fullName = args.fullName.trim();
+    if (!fullName) {
+      throw new Error("Fulde navn er påkrævet.");
+    }
+
+    const normalizedEmail = normalizeEmail(args.email);
+    if (!normalizedEmail) {
+      throw new Error("Email er påkrævet.");
+    }
+
+    const temporaryPin = generateTemporaryPin();
+    const auth = createAuth(ctx);
+    let authUserId: string;
+    try {
+      const result = await auth.api.signUpEmail({
+        body: {
+          email: normalizedEmail,
+          password: temporaryPin,
+          name: fullName,
+        },
+      });
+      authUserId = result.user.id;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (message.toLowerCase().includes("email")) {
+        throw new Error("Emailen er allerede i brug.");
+      }
+      throw new Error(`Kunne ikke oprette login: ${message}`);
+    }
+
     const now = Date.now();
-    return await ctx.db.insert("employees", {
-      ...args,
+
+    const existingRole = await ctx.db
+      .query("userRoles")
+      .withIndex("by_auth_user_id", (q) => q.eq("authUserId", authUserId))
+      .unique();
+
+    if (existingRole) {
+      await ctx.db.patch(existingRole._id, {
+        role: "medarbejder",
+        updatedAt: now,
+      });
+    } else {
+      await ctx.db.insert("userRoles", {
+        authUserId,
+        role: "medarbejder",
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+
+    const existingProfile = await ctx.db
+      .query("userProfiles")
+      .withIndex("by_auth_user_id", (q) => q.eq("authUserId", authUserId))
+      .unique();
+
+    if (existingProfile) {
+      await ctx.db.patch(existingProfile._id, {
+        fullName,
+        phone: args.phone,
+        email: normalizedEmail,
+        updatedAt: now,
+      });
+    } else {
+      await ctx.db.insert("userProfiles", {
+        authUserId,
+        fullName,
+        phone: args.phone,
+        email: normalizedEmail,
+        preferredSalonId: undefined,
+        defaultLatitude: undefined,
+        defaultLongitude: undefined,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+
+    const employeeId = await ctx.db.insert("employees", {
+      authUserId,
+      fullName,
+      phone: args.phone,
+      email: normalizedEmail,
+      title: args.title,
+      bio: args.bio,
+      avatarStorageId: args.avatarStorageId,
       isActive: true,
       createdAt: now,
       updatedAt: now,
     });
+
+    const existingFirstLoginRequirement = await ctx.db
+      .query("employeeFirstLoginRequirements")
+      .withIndex("by_auth_user_id", (q) => q.eq("authUserId", authUserId))
+      .unique();
+
+    if (existingFirstLoginRequirement) {
+      await ctx.db.patch(existingFirstLoginRequirement._id, {
+        mustChangePassword: true,
+        temporaryPinIssuedAt: now,
+        completedAt: undefined,
+        updatedAt: now,
+      });
+    } else {
+      await ctx.db.insert("employeeFirstLoginRequirements", {
+        authUserId,
+        mustChangePassword: true,
+        temporaryPinIssuedAt: now,
+        completedAt: undefined,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+
+    return {
+      employeeId,
+      temporaryPin,
+      email: normalizedEmail,
+    };
   },
 });
 

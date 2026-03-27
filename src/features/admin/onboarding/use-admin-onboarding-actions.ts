@@ -78,9 +78,13 @@ type AdminOnboardingActionsArgs = {
   }) => Promise<unknown>;
   createEmployee: (args: {
     fullName: string;
-    email?: string;
+    email: string;
     phone?: string;
-  }) => Promise<Id<"employees">>;
+  }) => Promise<{
+    employeeId: Id<"employees">;
+    temporaryPin: string;
+    email: string;
+  }>;
   assignEmployee: (args: {
     employeeId: Id<"employees">;
     salonId: Id<"salons">;
@@ -291,15 +295,23 @@ export function createAdminOnboardingActions(args: AdminOnboardingActionsArgs) {
       Alert.alert("Manglende data", "Indtast navn på medarbejder.");
       return null;
     }
+    if (!args.employeeForm.email.trim()) {
+      Alert.alert("Manglende data", "Indtast email på medarbejder.");
+      return null;
+    }
 
     try {
-      const id = await args.createEmployee({
+      const created = await args.createEmployee({
         fullName: args.employeeForm.fullName.trim(),
-        email: args.employeeForm.email.trim() || undefined,
+        email: args.employeeForm.email.trim(),
         phone: args.employeeForm.phone.trim() || undefined,
       });
-      args.setSelectedEmployeeId(id);
-      return id;
+      args.setSelectedEmployeeId(created.employeeId);
+      Alert.alert(
+        "Medarbejder oprettet",
+        `Login email: ${created.email}\nMidlertidig PIN: ${created.temporaryPin}\n\nDel PIN sikkert. Medarbejderen bliver bedt om at vælge ny adgangskode ved første login.`,
+      );
+      return created.employeeId;
     } catch (error) {
       Alert.alert("Kunne ikke oprette ansat", String(error));
       return null;
