@@ -94,8 +94,12 @@ export function SettingsScreen() {
   const router = useRouter();
   const sessionState = authClient.useSession();
   const role = useRole();
-  const resetAdminOnboarding = useMutation(api.adminOnboarding.resetMy);
-  const bootstrapFirstAdmin = useMutation(api.userRoles.bootstrapFirstAdmin);
+  const resetAdminOnboarding = useMutation(
+    api.backend.domains.admin.index.resetMy,
+  );
+  const bootstrapFirstAdmin = useMutation(
+    api.backend.domains.users.roles.bootstrapFirstAdmin,
+  );
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [isResettingOnboarding, setIsResettingOnboarding] = useState(false);
   const [isBootstrappingAdmin, setIsBootstrappingAdmin] = useState(false);

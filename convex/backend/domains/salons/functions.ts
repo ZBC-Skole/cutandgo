@@ -1,8 +1,8 @@
 import { v } from "convex/values";
-import type { Id } from "./_generated/dataModel";
-import type { MutationCtx } from "./_generated/server";
-import { mutation, query } from "./_generated/server";
-import { requireAppRole } from "./lib/authz";
+import type { Id } from "../../../_generated/dataModel";
+import type { MutationCtx } from "../../../_generated/server";
+import { mutation, query } from "../../../_generated/server";
+import { requireAppRole } from "../../security/authz";
 
 function toRadians(value: number) {
   return (value * Math.PI) / 180;

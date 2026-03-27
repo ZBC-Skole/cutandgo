@@ -8,19 +8,35 @@
  * @module
  */
 
-import type * as adminOnboarding from "../adminOnboarding.js";
-import type * as analytics from "../analytics.js";
 import type * as auth from "../auth.js";
-import type * as bookings from "../bookings.js";
+import type * as backend_domains_admin_index from "../backend/domains/admin/index.js";
+import type * as backend_domains_admin_onboarding from "../backend/domains/admin/onboarding.js";
+import type * as backend_domains_analytics_index from "../backend/domains/analytics/index.js";
+import type * as backend_domains_analytics_queries from "../backend/domains/analytics/queries.js";
+import type * as backend_domains_bookings_functions from "../backend/domains/bookings/functions.js";
+import type * as backend_domains_bookings_index from "../backend/domains/bookings/index.js";
+import type * as backend_domains_bookings_mutations from "../backend/domains/bookings/mutations.js";
+import type * as backend_domains_bookings_queries from "../backend/domains/bookings/queries.js";
+import type * as backend_domains_bookings_shared from "../backend/domains/bookings/shared.js";
+import type * as backend_domains_media_functions from "../backend/domains/media/functions.js";
+import type * as backend_domains_media_index from "../backend/domains/media/index.js";
+import type * as backend_domains_salons_functions from "../backend/domains/salons/functions.js";
+import type * as backend_domains_salons_index from "../backend/domains/salons/index.js";
+import type * as backend_domains_services_functions from "../backend/domains/services/functions.js";
+import type * as backend_domains_services_index from "../backend/domains/services/index.js";
+import type * as backend_domains_staff_functions from "../backend/domains/staff/functions.js";
+import type * as backend_domains_staff_index from "../backend/domains/staff/index.js";
+import type * as backend_domains_staff_mutations from "../backend/domains/staff/mutations.js";
+import type * as backend_domains_staff_queries from "../backend/domains/staff/queries.js";
+import type * as backend_domains_staff_shared from "../backend/domains/staff/shared.js";
+import type * as backend_domains_tasks_functions from "../backend/domains/tasks/functions.js";
+import type * as backend_domains_tasks_index from "../backend/domains/tasks/index.js";
+import type * as backend_domains_users_index from "../backend/domains/users/index.js";
+import type * as backend_domains_users_profiles from "../backend/domains/users/profiles.js";
+import type * as backend_domains_users_roles from "../backend/domains/users/roles.js";
+import type * as backend_security_authz from "../backend/security/authz.js";
+import type * as config from "../config.js";
 import type * as http from "../http.js";
-import type * as lib_authz from "../lib/authz.js";
-import type * as media from "../media.js";
-import type * as salons from "../salons.js";
-import type * as services from "../services.js";
-import type * as staff from "../staff.js";
-import type * as tasks from "../tasks.js";
-import type * as userProfiles from "../userProfiles.js";
-import type * as userRoles from "../userRoles.js";
 
 import type {
   ApiFromModules,
@@ -29,19 +45,35 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
-  adminOnboarding: typeof adminOnboarding;
-  analytics: typeof analytics;
   auth: typeof auth;
-  bookings: typeof bookings;
+  "backend/domains/admin/index": typeof backend_domains_admin_index;
+  "backend/domains/admin/onboarding": typeof backend_domains_admin_onboarding;
+  "backend/domains/analytics/index": typeof backend_domains_analytics_index;
+  "backend/domains/analytics/queries": typeof backend_domains_analytics_queries;
+  "backend/domains/bookings/functions": typeof backend_domains_bookings_functions;
+  "backend/domains/bookings/index": typeof backend_domains_bookings_index;
+  "backend/domains/bookings/mutations": typeof backend_domains_bookings_mutations;
+  "backend/domains/bookings/queries": typeof backend_domains_bookings_queries;
+  "backend/domains/bookings/shared": typeof backend_domains_bookings_shared;
+  "backend/domains/media/functions": typeof backend_domains_media_functions;
+  "backend/domains/media/index": typeof backend_domains_media_index;
+  "backend/domains/salons/functions": typeof backend_domains_salons_functions;
+  "backend/domains/salons/index": typeof backend_domains_salons_index;
+  "backend/domains/services/functions": typeof backend_domains_services_functions;
+  "backend/domains/services/index": typeof backend_domains_services_index;
+  "backend/domains/staff/functions": typeof backend_domains_staff_functions;
+  "backend/domains/staff/index": typeof backend_domains_staff_index;
+  "backend/domains/staff/mutations": typeof backend_domains_staff_mutations;
+  "backend/domains/staff/queries": typeof backend_domains_staff_queries;
+  "backend/domains/staff/shared": typeof backend_domains_staff_shared;
+  "backend/domains/tasks/functions": typeof backend_domains_tasks_functions;
+  "backend/domains/tasks/index": typeof backend_domains_tasks_index;
+  "backend/domains/users/index": typeof backend_domains_users_index;
+  "backend/domains/users/profiles": typeof backend_domains_users_profiles;
+  "backend/domains/users/roles": typeof backend_domains_users_roles;
+  "backend/security/authz": typeof backend_security_authz;
+  config: typeof config;
   http: typeof http;
-  "lib/authz": typeof lib_authz;
-  media: typeof media;
-  salons: typeof salons;
-  services: typeof services;
-  staff: typeof staff;
-  tasks: typeof tasks;
-  userProfiles: typeof userProfiles;
-  userRoles: typeof userRoles;
 }>;
 
 /**

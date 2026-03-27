@@ -25,16 +25,22 @@ export function BookingDetailsSheetScreen() {
   const [uploadingSlot, setUploadingSlot] = useState<number | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
   const { hasRole } = useRole();
-  const createUploadUrl = useMutation(api.media.createUploadUrl);
-  const attachBookingPhoto = useMutation(api.media.attachBookingPhoto);
-  const cancelBooking = useMutation(api.bookings.cancelBooking);
+  const createUploadUrl = useMutation(
+    api.backend.domains.media.index.createUploadUrl,
+  );
+  const attachBookingPhoto = useMutation(
+    api.backend.domains.media.index.attachBookingPhoto,
+  );
+  const cancelBooking = useMutation(
+    api.backend.domains.bookings.index.cancelBooking,
+  );
 
   const appointmentId = Array.isArray(parameters.id)
     ? parameters.id[0]
     : parameters.id;
 
   const booking = useQuery(
-    api.bookings.getViewerBookingDetail,
+    api.backend.domains.bookings.index.getViewerBookingDetail,
     appointmentId ? { bookingId: appointmentId as Id<"bookings"> } : "skip",
   );
 

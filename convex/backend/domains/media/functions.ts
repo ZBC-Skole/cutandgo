@@ -1,8 +1,13 @@
 import { v } from "convex/values";
-import type { Id } from "./_generated/dataModel";
-import type { MutationCtx, QueryCtx } from "./_generated/server";
-import { mutation, query } from "./_generated/server";
-import { getAppRole, getEmployeeByAuthUserId, requireAuthUser, requireSalonAccess } from "./lib/authz";
+import type { Id } from "../../../_generated/dataModel";
+import type { MutationCtx, QueryCtx } from "../../../_generated/server";
+import { mutation, query } from "../../../_generated/server";
+import {
+  getAppRole,
+  getEmployeeByAuthUserId,
+  requireAuthUser,
+  requireSalonAccess,
+} from "../../security/authz";
 
 type Ctx = QueryCtx | MutationCtx;
 
@@ -14,7 +19,11 @@ export const createUploadUrl = mutation({
   },
 });
 
-async function canAccessBooking(ctx: Ctx, bookingId: Id<"bookings">, authUserId: string) {
+async function canAccessBooking(
+  ctx: Ctx,
+  bookingId: Id<"bookings">,
+  authUserId: string,
+) {
   const booking = await ctx.db.get(bookingId);
   if (!booking) {
     return { allowed: false, booking: null };
@@ -36,7 +45,9 @@ async function canAccessBooking(ctx: Ctx, bookingId: Id<"bookings">, authUserId:
 
   const assignment = await ctx.db
     .query("employeeSalonRoles")
-    .withIndex("by_salon_employee", (q) => q.eq("salonId", booking.salonId).eq("employeeId", employee._id))
+    .withIndex("by_salon_employee", (q) =>
+      q.eq("salonId", booking.salonId).eq("employeeId", employee._id),
+    )
     .unique();
 
   return { allowed: Boolean(assignment?.isActive), booking };
@@ -46,14 +57,20 @@ export const attachBookingPhoto = mutation({
   args: {
     bookingId: v.id("bookings"),
     storageId: v.id("_storage"),
-    photoType: v.union(v.literal("before"), v.literal("after"), v.literal("reference")),
+    photoType: v.union(
+      v.literal("before"),
+      v.literal("after"),
+      v.literal("reference"),
+    ),
     caption: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const authUser = await requireAuthUser(ctx);
     const access = await canAccessBooking(ctx, args.bookingId, authUser._id);
     if (!access.allowed || !access.booking) {
-      throw new Error("Du har ikke adgang til at tilføje billeder til bookingen.");
+      throw new Error(
+        "Du har ikke adgang til at tilføje billeder til bookingen.",
+      );
     }
 
     if (args.photoType === "reference") {
@@ -64,10 +81,9 @@ export const attachBookingPhoto = mutation({
         )
         .collect();
 
-      const existingForCaption =
-        args.caption
-          ? existingReferences.find((item) => item.caption === args.caption)
-          : null;
+      const existingForCaption = args.caption
+        ? existingReferences.find((item) => item.caption === args.caption)
+        : null;
 
       if (existingForCaption) {
         await ctx.db.patch(existingForCaption._id, {

@@ -1,6 +1,6 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
-import { requireAuthUser } from "./lib/authz";
+import { mutation, query } from "../../../_generated/server";
+import { requireAuthUser } from "../../security/authz";
 
 export const getMyProfile = query({
   args: {},

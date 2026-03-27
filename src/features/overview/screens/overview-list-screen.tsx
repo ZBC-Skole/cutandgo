@@ -13,7 +13,9 @@ import { ScrollView, Text, View } from "react-native";
 
 export function OverviewListScreen() {
   const router = useRouter();
-  const allAppointments = useQuery(api.bookings.getMyOverviewBookings);
+  const allAppointments = useQuery(
+    api.backend.domains.bookings.index.getMyOverviewBookings,
+  );
   const parameters = useLocalSearchParams<{ filter?: string | string[] }>();
 
   const filterValue = Array.isArray(parameters.filter)

@@ -9,7 +9,9 @@ import { ScrollView, View } from "react-native";
 
 export function OverviewScreen() {
   const router = useRouter();
-  const appointments = useQuery(api.bookings.getMyOverviewBookings);
+  const appointments = useQuery(
+    api.backend.domains.bookings.index.getMyOverviewBookings,
+  );
 
   const { upcoming, past } = useMemo(
     () => splitOverviewAppointments(appointments ?? [], new Date()),

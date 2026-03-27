@@ -1,7 +1,7 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
-import { authComponent } from "./auth";
-import { requireAuthUser } from "./lib/authz";
+import { mutation, query } from "../../../_generated/server";
+import { authComponent } from "../../../auth";
+import { requireAuthUser } from "../../security/authz";
 
 type AppRole = "admin" | "medarbejder" | "kunde";
 
@@ -38,7 +38,11 @@ export const getMyRole = query({
 export const setRoleForUser = mutation({
   args: {
     authUserId: v.string(),
-    role: v.union(v.literal("admin"), v.literal("medarbejder"), v.literal("kunde")),
+    role: v.union(
+      v.literal("admin"),
+      v.literal("medarbejder"),
+      v.literal("kunde"),
+    ),
   },
   handler: async (ctx, args) => {
     const existing = await ctx.db
@@ -49,13 +53,17 @@ export const setRoleForUser = mutation({
     if (args.role === "medarbejder") {
       const existingEmployee = await ctx.db
         .query("employees")
-        .withIndex("by_auth_user_id", (q) => q.eq("authUserId", args.authUserId))
+        .withIndex("by_auth_user_id", (q) =>
+          q.eq("authUserId", args.authUserId),
+        )
         .unique();
 
       if (!existingEmployee) {
         const profile = await ctx.db
           .query("userProfiles")
-          .withIndex("by_auth_user_id", (q) => q.eq("authUserId", args.authUserId))
+          .withIndex("by_auth_user_id", (q) =>
+            q.eq("authUserId", args.authUserId),
+          )
           .unique();
         const now = Date.now();
 
@@ -77,7 +85,10 @@ export const setRoleForUser = mutation({
     }
 
     if (existing) {
-      await ctx.db.patch(existing._id, { role: args.role, updatedAt: Date.now() });
+      await ctx.db.patch(existing._id, {
+        role: args.role,
+        updatedAt: Date.now(),
+      });
       return existing._id;
     }
 

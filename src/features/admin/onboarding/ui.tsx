@@ -156,7 +156,7 @@ export function DayEditor({
               </Text>
               <View className="flex-row items-center gap-2">
                 <Text selectable className="text-xs text-neutral-500">
-                  Lukket
+                  {row.isClosed ? "Lukket" : "Åben"}
                 </Text>
                 <Switch
                   value={row.isClosed}

@@ -1,6 +1,6 @@
 import { v } from "convex/values";
-import { query } from "./_generated/server";
-import { requireAppRole, requireSalonAccess } from "./lib/authz";
+import { query } from "../../../_generated/server";
+import { requireAppRole, requireSalonAccess } from "../../security/authz";
 
 const periodKeyValidator = v.union(
   v.literal("7d"),
@@ -55,7 +55,8 @@ function getEndOfBusinessDay(timestamp: number) {
   const month = getNumericPart(parts, "month");
   const day = getNumericPart(parts, "day");
   const nextUtcMidnight = Date.UTC(year, month - 1, day + 1, 0, 0, 0, 0);
-  const nextBusinessMidnight = nextUtcMidnight - getTimeZoneOffsetAt(nextUtcMidnight);
+  const nextBusinessMidnight =
+    nextUtcMidnight - getTimeZoneOffsetAt(nextUtcMidnight);
   return nextBusinessMidnight - 1;
 }
 

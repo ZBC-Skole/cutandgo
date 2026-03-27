@@ -1,6 +1,6 @@
-import type { Id } from "./../_generated/dataModel";
-import type { MutationCtx, QueryCtx } from "./../_generated/server";
-import { authComponent } from "../auth";
+import type { Id } from "../../_generated/dataModel";
+import type { MutationCtx, QueryCtx } from "../../_generated/server";
+import { authComponent } from "../../auth";
 
 export type AppRole = "admin" | "medarbejder" | "kunde";
 export type SalonRole = "owner" | "manager" | "stylist" | "assistant";
@@ -15,7 +15,10 @@ export async function requireAuthUser(ctx: Ctx) {
   return authUser;
 }
 
-export async function getAppRole(ctx: Ctx, authUserId: string): Promise<AppRole> {
+export async function getAppRole(
+  ctx: Ctx,
+  authUserId: string,
+): Promise<AppRole> {
   const roleDoc = await ctx.db
     .query("userRoles")
     .withIndex("by_auth_user_id", (q) => q.eq("authUserId", authUserId))
@@ -58,13 +61,18 @@ export async function requireSalonAccess(
 
   const assignment = await ctx.db
     .query("employeeSalonRoles")
-    .withIndex("by_salon_employee", (q) => q.eq("salonId", salonId).eq("employeeId", employee._id))
+    .withIndex("by_salon_employee", (q) =>
+      q.eq("salonId", salonId).eq("employeeId", employee._id),
+    )
     .unique();
 
-  if (!assignment || !assignment.isActive || !allowedSalonRoles.includes(assignment.role)) {
+  if (
+    !assignment ||
+    !assignment.isActive ||
+    !allowedSalonRoles.includes(assignment.role)
+  ) {
     throw new Error("Du har ikke adgang til denne salon.");
   }
 
   return { authUser, appRole, employee, assignment };
 }
-

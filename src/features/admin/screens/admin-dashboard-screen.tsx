@@ -85,7 +85,7 @@ export function AdminDashboardScreen() {
   const [selectedSalonId, setSelectedSalonId] = useState<SalonFilter>("all");
 
   const dashboard = useQuery(
-    api.analytics.getAdminDashboard,
+    api.backend.domains.analytics.index.getAdminDashboard,
     selectedSalonId === "all"
       ? { periodKey }
       : { periodKey, salonId: selectedSalonId },

@@ -18,12 +18,14 @@ export function useAdminOnboardingGate(): UseAdminOnboardingGateResult {
   const [hasRequestedEnsure, setHasRequestedEnsure] = useState(false);
 
   const state = useQuery(
-    api.adminOnboarding.getMyAdminOnboardingState,
+    api.backend.domains.admin.index.getMyAdminOnboardingState,
     role.isAdmin ? {} : "skip",
   );
-  const ensureMyState = useMutation(api.adminOnboarding.ensureMyState);
-  const completeMy = useMutation(api.adminOnboarding.completeMy);
-  const resetMy = useMutation(api.adminOnboarding.resetMy);
+  const ensureMyState = useMutation(
+    api.backend.domains.admin.index.ensureMyState,
+  );
+  const completeMy = useMutation(api.backend.domains.admin.index.completeMy);
+  const resetMy = useMutation(api.backend.domains.admin.index.resetMy);
 
   useEffect(() => {
     if (!role.isAdmin || role.isPending) {

@@ -1,6 +1,6 @@
 import { api } from "@/convex/_generated/api";
-import type { AppRole } from "@/lib/auth-roles";
 import { authClient } from "@/lib/auth-client";
+import type { AppRole } from "@/lib/auth-roles";
 import { useQuery } from "convex/react";
 
 type UseRoleResult = {
@@ -13,7 +13,7 @@ type UseRoleResult = {
 
 export function useRole(): UseRoleResult {
   const sessionState = authClient.useSession();
-  const roleFromDb = useQuery(api.userRoles.getMyRole);
+  const roleFromDb = useQuery(api.backend.domains.users.roles.getMyRole);
   const resolvedRole: AppRole = roleFromDb ?? "kunde";
   const roles: AppRole[] = [resolvedRole];
 

@@ -1,6 +1,6 @@
-import { mutation, query } from "./_generated/server";
-import { authComponent } from "./auth";
-import { getAppRole, requireAppRole } from "./lib/authz";
+import { mutation, query } from "../../../_generated/server";
+import { authComponent } from "../../../auth";
+import { getAppRole, requireAppRole } from "../../security/authz";
 
 const ONBOARDING_VERSION = 1;
 const ADMIN_ONBOARDING_RELEASE_CUTOFF_MS = Date.parse(

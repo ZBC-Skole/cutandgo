@@ -1,6 +1,6 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
-import { requireSalonAccess } from "./lib/authz";
+import { mutation, query } from "../../../_generated/server";
+import { requireSalonAccess } from "../../security/authz";
 
 export const listBySalon = query({
   args: {

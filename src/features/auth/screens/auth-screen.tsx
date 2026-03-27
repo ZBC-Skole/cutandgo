@@ -85,6 +85,19 @@ export function AuthScreen() {
 
       if (result.error) {
         setErrorMessage(result.error.message ?? "Kunne ikke oprette konto.");
+        return;
+      }
+
+      const signInResult = await authClient.signIn.email({
+        email: normalizedEmail,
+        password,
+      });
+
+      if (signInResult.error) {
+        setErrorMessage(
+          signInResult.error.message ??
+            "Konto oprettet, men login fejlede. Prøv at logge ind manuelt.",
+        );
       }
     } catch {
       setErrorMessage("Noget gik galt. Prøv igen om lidt.");

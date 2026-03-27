@@ -1,16 +1,13 @@
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { ONBOARDING_STEPS } from "@/features/admin/onboarding/constants";
-import {
-  createDefaultWeek,
-  createSlugFromName,
-} from "@/features/admin/onboarding/lib";
+import { createDefaultWeek } from "@/features/admin/onboarding/lib";
 import type {
   DayDraft,
   EmployeeAssignRole,
 } from "@/features/admin/onboarding/types";
+import { createAdminOnboardingActions } from "@/features/admin/onboarding/use-admin-onboarding-actions";
 import { useMutation, useQuery } from "convex/react";
-import * as Location from "expo-location";
 import { useEffect, useMemo, useState } from "react";
 import { Alert } from "react-native";
 
@@ -19,8 +16,10 @@ export function useAdminOnboarding() {
   const [isSavingStep, setIsSavingStep] = useState(false);
   const [isFlowCompleted, setIsFlowCompleted] = useState(false);
 
-  const salonsQuery = useQuery(api.salons.listActive);
-  const employeesQuery = useQuery(api.staff.listEmployees);
+  const salonsQuery = useQuery(api.backend.domains.salons.index.listActive);
+  const employeesQuery = useQuery(
+    api.backend.domains.staff.index.listEmployees,
+  );
 
   const [selectedSalonId, setSelectedSalonId] = useState<Id<"salons"> | null>(
     null,
@@ -33,21 +32,21 @@ export function useAdminOnboarding() {
     useState<EmployeeAssignRole>("stylist");
 
   const openingHoursQuery = useQuery(
-    api.salons.getOpeningHours,
+    api.backend.domains.salons.index.getOpeningHours,
     selectedSalonId ? { salonId: selectedSalonId } : "skip",
   );
   const workingHoursQuery = useQuery(
-    api.staff.getWorkingHours,
+    api.backend.domains.staff.index.getWorkingHours,
     selectedSalonId && selectedEmployeeId
       ? { salonId: selectedSalonId, employeeId: selectedEmployeeId }
       : "skip",
   );
   const categoriesWithServicesQuery = useQuery(
-    api.services.listBySalon,
+    api.backend.domains.services.index.listBySalon,
     selectedSalonId ? { salonId: selectedSalonId, activeOnly: true } : "skip",
   );
   const salonEmployeesQuery = useQuery(
-    api.staff.listSalonEmployees,
+    api.backend.domains.staff.index.listSalonEmployees,
     selectedSalonId ? { salonId: selectedSalonId } : "skip",
   );
 
@@ -70,13 +69,25 @@ export function useAdminOnboarding() {
     [salonEmployeesQuery],
   );
 
-  const createSalon = useMutation(api.salons.create);
-  const setSalonOpeningHours = useMutation(api.salons.setOpeningHours);
-  const createEmployee = useMutation(api.staff.createEmployee);
-  const assignEmployee = useMutation(api.staff.assignEmployeeToSalon);
-  const setWorkingHours = useMutation(api.staff.setWorkingHours);
-  const createCategory = useMutation(api.services.createCategory);
-  const createService = useMutation(api.services.createService);
+  const createSalon = useMutation(api.backend.domains.salons.index.create);
+  const setSalonOpeningHours = useMutation(
+    api.backend.domains.salons.index.setOpeningHours,
+  );
+  const createEmployee = useMutation(
+    api.backend.domains.staff.index.createEmployee,
+  );
+  const assignEmployee = useMutation(
+    api.backend.domains.staff.index.assignEmployeeToSalon,
+  );
+  const setWorkingHours = useMutation(
+    api.backend.domains.staff.index.setWorkingHours,
+  );
+  const createCategory = useMutation(
+    api.backend.domains.services.index.createCategory,
+  );
+  const createService = useMutation(
+    api.backend.domains.services.index.createService,
+  );
 
   const [salonWeek, setSalonWeek] = useState<DayDraft[]>(createDefaultWeek());
   const [employeeWeek, setEmployeeWeek] =
@@ -184,6 +195,37 @@ export function useAdminOnboarding() {
     [salonEmployees, selectedSalonId],
   );
 
+  const actions = createAdminOnboardingActions({
+    addressQuery,
+    setAddressSearchFeedback,
+    setIsUsingCurrentLocation,
+    setIsSearchingAddress,
+    salonForm,
+    setSalonForm,
+    isSlugManuallyEdited,
+    setIsSlugManuallyEdited,
+    selectedSalonId,
+    setSelectedSalonId,
+    selectedEmployeeId,
+    setSelectedEmployeeId,
+    selectedAssignRole,
+    selectedCategoryId,
+    setSelectedCategoryId,
+    salonWeek,
+    employeeWeek,
+    employeeForm,
+    categoryForm,
+    setCategoryForm,
+    serviceForm,
+    createSalon,
+    setSalonOpeningHours,
+    createEmployee,
+    assignEmployee,
+    setWorkingHours,
+    createCategory,
+    createService,
+  });
+
   const stepValidationMessage = useMemo(() => {
     if (stepIndex === 0) {
       if (!selectedSalonId) {
@@ -248,287 +290,6 @@ export function useAdminOnboarding() {
 
   const canContinue = !stepValidationMessage;
 
-  function updateSalonName(value: string) {
-    setSalonForm((previous) => ({
-      ...previous,
-      name: value,
-      slug: isSlugManuallyEdited ? previous.slug : createSlugFromName(value),
-    }));
-  }
-
-  function updateSalonSlug(value: string) {
-    setIsSlugManuallyEdited(true);
-    setSalonForm((previous) => ({ ...previous, slug: value }));
-  }
-
-  function applyLocation(args: {
-    latitude: number;
-    longitude: number;
-    addressLine1: string;
-    postalCode: string;
-    city: string;
-    countryCode: string;
-  }) {
-    setSalonForm((previous) => ({
-      ...previous,
-      latitude: args.latitude.toFixed(6),
-      longitude: args.longitude.toFixed(6),
-      addressLine1: args.addressLine1 || previous.addressLine1,
-      postalCode: args.postalCode || previous.postalCode,
-      city: args.city || previous.city,
-      countryCode: args.countryCode || previous.countryCode,
-    }));
-  }
-
-  async function onUseCurrentLocation() {
-    try {
-      setIsUsingCurrentLocation(true);
-      setAddressSearchFeedback(null);
-      const permission = await Location.requestForegroundPermissionsAsync();
-      if (permission.status !== "granted") {
-        Alert.alert(
-          "Lokation ikke tilladt",
-          "Giv adgang til lokation i appen.",
-        );
-        return;
-      }
-
-      const position = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-      const latitude = position.coords.latitude;
-      const longitude = position.coords.longitude;
-
-      const reverse = await Location.reverseGeocodeAsync({
-        latitude,
-        longitude,
-      });
-      const address = reverse[0];
-      applyLocation({
-        latitude,
-        longitude,
-        addressLine1:
-          address?.street && address?.streetNumber
-            ? `${address.street} ${address.streetNumber}`.trim()
-            : "Min nuværende lokation",
-        postalCode: address?.postalCode ?? "",
-        city: address?.city ?? address?.subregion ?? "",
-        countryCode: address?.isoCountryCode ?? "DK",
-      });
-      setAddressSearchFeedback("Lokation fundet fra mobilen.");
-    } catch (error) {
-      Alert.alert("Kunne ikke hente lokation", String(error));
-    } finally {
-      setIsUsingCurrentLocation(false);
-    }
-  }
-
-  async function onSearchAddress() {
-    const query = addressQuery.trim();
-    if (query.length < 3) {
-      setAddressSearchFeedback("Skriv mindst 3 tegn for at søge.");
-      return;
-    }
-
-    try {
-      setIsSearchingAddress(true);
-      setAddressSearchFeedback(null);
-
-      const geocode = await Location.geocodeAsync(query);
-      const first = geocode[0];
-      if (!first) {
-        setAddressSearchFeedback(
-          "Ingen resultater. Prøv en mere præcis adresse.",
-        );
-        return;
-      }
-
-      const reverse = await Location.reverseGeocodeAsync({
-        latitude: first.latitude,
-        longitude: first.longitude,
-      });
-      const address = reverse[0];
-
-      applyLocation({
-        latitude: first.latitude,
-        longitude: first.longitude,
-        addressLine1:
-          address?.street && address?.streetNumber
-            ? `${address.street} ${address.streetNumber}`.trim()
-            : query,
-        postalCode: address?.postalCode ?? "",
-        city: address?.city ?? address?.subregion ?? "",
-        countryCode: address?.isoCountryCode ?? "DK",
-      });
-      setAddressSearchFeedback("Adresse fundet.");
-    } catch (error) {
-      Alert.alert("Søgning fejlede", String(error));
-    } finally {
-      setIsSearchingAddress(false);
-    }
-  }
-
-  async function onCreateSalon() {
-    if (!salonForm.name.trim() || !salonForm.slug.trim()) {
-      Alert.alert("Manglende data", "Udfyld mindst navn og slug.");
-      return null;
-    }
-    if (!salonForm.latitude || !salonForm.longitude) {
-      Alert.alert(
-        "Manglende lokation",
-        "Brug 'Find adresse' eller 'Brug min lokation' først.",
-      );
-      return null;
-    }
-
-    try {
-      const id = await createSalon({
-        name: salonForm.name.trim(),
-        slug: salonForm.slug.trim().toLowerCase(),
-        addressLine1: salonForm.addressLine1.trim() || "Ikke sat",
-        postalCode: salonForm.postalCode.trim() || "0000",
-        city: salonForm.city.trim() || "Ikke sat",
-        countryCode: salonForm.countryCode.trim().toUpperCase() || "DK",
-        latitude: Number(salonForm.latitude || "0"),
-        longitude: Number(salonForm.longitude || "0"),
-      });
-      setSelectedSalonId(id);
-      return id;
-    } catch (error) {
-      Alert.alert("Kunne ikke oprette salon", String(error));
-      return null;
-    }
-  }
-
-  async function onSaveSalonOpeningHours() {
-    if (!selectedSalonId) {
-      return false;
-    }
-
-    try {
-      await setSalonOpeningHours({
-        salonId: selectedSalonId,
-        entries: salonWeek.map((row) => ({
-          weekday: row.weekday,
-          opensAt: row.opensAt,
-          closesAt: row.closesAt,
-          isClosed: row.isClosed,
-        })),
-      });
-      return true;
-    } catch (error) {
-      Alert.alert("Kunne ikke gemme åbningstider", String(error));
-      return false;
-    }
-  }
-
-  async function onCreateEmployee(): Promise<Id<"employees"> | null> {
-    if (!employeeForm.fullName.trim()) {
-      Alert.alert("Manglende data", "Indtast navn på medarbejder.");
-      return null;
-    }
-
-    try {
-      const id = await createEmployee({
-        fullName: employeeForm.fullName.trim(),
-        email: employeeForm.email.trim() || undefined,
-        phone: employeeForm.phone.trim() || undefined,
-      });
-      setSelectedEmployeeId(id);
-      return id;
-    } catch (error) {
-      Alert.alert("Kunne ikke oprette ansat", String(error));
-      return null;
-    }
-  }
-
-  async function onAssignEmployee(employeeId: Id<"employees">) {
-    if (!selectedSalonId) {
-      return false;
-    }
-
-    try {
-      await assignEmployee({
-        employeeId,
-        salonId: selectedSalonId,
-        role: selectedAssignRole,
-      });
-      return true;
-    } catch (error) {
-      Alert.alert("Kunne ikke tilknytte ansat", String(error));
-      return false;
-    }
-  }
-
-  async function onSaveEmployeeHours() {
-    if (!selectedEmployeeId || !selectedSalonId) {
-      return false;
-    }
-
-    try {
-      await setWorkingHours({
-        employeeId: selectedEmployeeId,
-        salonId: selectedSalonId,
-        entries: employeeWeek.map((row) => ({
-          weekday: row.weekday,
-          startAt: row.opensAt,
-          endAt: row.closesAt,
-          isOff: row.isClosed,
-        })),
-      });
-      return true;
-    } catch (error) {
-      Alert.alert("Kunne ikke gemme arbejdstider", String(error));
-      return false;
-    }
-  }
-
-  async function onCreateCategory() {
-    if (!selectedSalonId) {
-      return null;
-    }
-    if (!categoryForm.name.trim()) {
-      return selectedCategoryId;
-    }
-
-    try {
-      const id = await createCategory({
-        salonId: selectedSalonId,
-        name: categoryForm.name.trim(),
-        displayOrder: categoryForm.displayOrder
-          ? Number(categoryForm.displayOrder)
-          : undefined,
-      });
-      setSelectedCategoryId(id);
-      setCategoryForm({ name: "", displayOrder: "" });
-      return id;
-    } catch (error) {
-      Alert.alert("Kunne ikke oprette kategori", String(error));
-      return null;
-    }
-  }
-
-  async function onCreateService(categoryId: Id<"serviceCategories">) {
-    if (!selectedSalonId || !serviceForm.name.trim()) {
-      Alert.alert("Manglende data", "Vælg kategori og service-navn.");
-      return false;
-    }
-
-    try {
-      await createService({
-        salonId: selectedSalonId,
-        categoryId,
-        name: serviceForm.name.trim(),
-        durationMinutes: Number(serviceForm.durationMinutes),
-        priceDkk: Number(serviceForm.priceDkk),
-      });
-      return true;
-    } catch (error) {
-      Alert.alert("Kunne ikke oprette service", String(error));
-      return false;
-    }
-  }
-
   async function nextStep() {
     if (!canContinue || isSavingStep) {
       return;
@@ -549,7 +310,7 @@ export function useAdminOnboarding() {
           return;
         }
 
-        const createdSalonId = await onCreateSalon();
+        const createdSalonId = await actions.onCreateSalon();
         if (!createdSalonId) {
           return;
         }
@@ -560,7 +321,7 @@ export function useAdminOnboarding() {
       }
 
       if (stepIndex === 1) {
-        const didSave = await onSaveSalonOpeningHours();
+        const didSave = await actions.onSaveSalonOpeningHours();
         if (!didSave) {
           return;
         }
@@ -573,12 +334,12 @@ export function useAdminOnboarding() {
       if (stepIndex === 2) {
         let employeeId = selectedEmployeeId;
         if (!employeeId) {
-          employeeId = await onCreateEmployee();
+          employeeId = await actions.onCreateEmployee();
         }
         if (!employeeId) {
           return;
         }
-        const didAssign = await onAssignEmployee(employeeId);
+        const didAssign = await actions.onAssignEmployee(employeeId);
         if (!didAssign) {
           return;
         }
@@ -590,7 +351,7 @@ export function useAdminOnboarding() {
       }
 
       if (stepIndex === 3) {
-        const didSave = await onSaveEmployeeHours();
+        const didSave = await actions.onSaveEmployeeHours();
         if (!didSave) {
           return;
         }
@@ -601,7 +362,7 @@ export function useAdminOnboarding() {
       }
 
       if (stepIndex === 4) {
-        const categoryId = await onCreateCategory();
+        const categoryId = await actions.onCreateCategory();
         if (!categoryId) {
           Alert.alert(
             "Manglende data",
@@ -609,7 +370,7 @@ export function useAdminOnboarding() {
           );
           return;
         }
-        const didCreateService = await onCreateService(categoryId);
+        const didCreateService = await actions.onCreateService(categoryId);
         if (!didCreateService) {
           return;
         }
@@ -636,12 +397,10 @@ export function useAdminOnboarding() {
     progressPercent,
     stepValidationMessage,
     canContinue,
-
     salons,
     employees,
     categoriesWithServices,
     selectedSalonAssignedEmployees,
-
     selectedSalonId,
     setSelectedSalonId,
     selectedEmployeeId,
@@ -650,33 +409,26 @@ export function useAdminOnboarding() {
     setSelectedCategoryId,
     selectedAssignRole,
     setSelectedAssignRole,
-
     salonWeek,
     setSalonWeek,
     employeeWeek,
     setEmployeeWeek,
-
     salonForm,
-    updateSalonName,
-    updateSalonSlug,
-
+    updateSalonName: actions.updateSalonName,
+    updateSalonSlug: actions.updateSalonSlug,
     addressQuery,
     setAddressQuery,
     isUsingCurrentLocation,
     isSearchingAddress,
     addressSearchFeedback,
-    onUseCurrentLocation,
-    onSearchAddress,
-
+    onUseCurrentLocation: actions.onUseCurrentLocation,
+    onSearchAddress: actions.onSearchAddress,
     employeeForm,
     setEmployeeForm,
-
     categoryForm,
     setCategoryForm,
-
     serviceForm,
     setServiceForm,
-
     previousStep,
     nextStep,
   };
