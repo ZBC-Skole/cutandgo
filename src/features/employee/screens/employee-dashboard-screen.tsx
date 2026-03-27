@@ -28,19 +28,81 @@ function roundToNextQuarter(timestamp: number) {
 }
 
 const activeBookingStatuses = new Set(["booked", "confirmed"]);
+const statusLabelByKey: Record<string, string> = {
+  booked: "Booket",
+  confirmed: "Bekræftet",
+  completed: "Gennemført",
+  cancelled_by_customer: "Aflyst af kunde",
+  cancelled_by_salon: "Aflyst af salon",
+  no_show: "No-show",
+};
+
+function BookingActionButton({
+  label,
+  disabled = false,
+  onPress,
+  tone = "neutral",
+}: {
+  label: string;
+  disabled?: boolean;
+  onPress: () => void;
+  tone?: "neutral" | "success" | "danger";
+}) {
+  const className = `items-center justify-center rounded-xl px-3 py-3 ${
+    tone === "success"
+      ? disabled
+        ? "bg-emerald-100"
+        : "bg-emerald-500"
+      : tone === "danger"
+        ? disabled
+          ? "bg-red-100"
+          : "bg-red-500"
+        : disabled
+          ? "bg-neutral-200"
+          : "bg-neutral-900"
+  }`;
+  const textClassName =
+    tone === "neutral" && !disabled
+      ? "text-white"
+      : tone === "success" && !disabled
+        ? "text-white"
+        : tone === "danger" && !disabled
+          ? "text-white"
+          : tone === "success"
+            ? "text-emerald-800"
+            : tone === "danger"
+              ? "text-red-700"
+              : "text-neutral-700";
+
+  return (
+    <Pressable
+      disabled={disabled}
+      onPress={onPress}
+      className={className}
+      style={{ borderCurve: "continuous" }}
+    >
+      <Text selectable className={`text-center text-sm font-semibold ${textClassName}`}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
 
 export function EmployeeDashboardScreen() {
   const schedule = useQuery(api.bookings.getMyEmployeeSchedule, {});
   const salons = useQuery(api.staff.getMyActiveSalons, {});
 
   const cancelBooking = useMutation(api.bookings.cancelBooking);
+  const markCompleted = useMutation(api.bookings.markCompleted);
   const rescheduleMyBooking = useMutation(api.bookings.rescheduleMyBooking);
   const reportMySickLeave = useMutation(api.staff.reportMySickLeave);
+  const resolveMySickLeave = useMutation(api.staff.resolveMySickLeave);
 
   const [isMutatingBookingId, setIsMutatingBookingId] = useState<string | null>(
     null,
   );
   const [isSubmittingSickLeave, setIsSubmittingSickLeave] = useState(false);
+  const [isResolvingSickLeave, setIsResolvingSickLeave] = useState(false);
   const [selectedSalonId, setSelectedSalonId] = useState<Id<"salons"> | null>(
     null,
   );
@@ -129,6 +191,31 @@ export function EmployeeDashboardScreen() {
     }
   }
 
+  async function handleComplete(bookingId: Id<"bookings">) {
+    Alert.alert(
+      "Marker som udført",
+      "Markér denne booking som gennemført og frigør tiden nu?",
+      [
+        { text: "Nej", style: "cancel" },
+        {
+          text: "Ja, marker udført",
+          onPress: () => {
+            void (async () => {
+              try {
+                setIsMutatingBookingId(bookingId);
+                await markCompleted({ bookingId });
+              } catch (error) {
+                Alert.alert("Kunne ikke markere som udført", String(error));
+              } finally {
+                setIsMutatingBookingId(null);
+              }
+            })();
+          },
+        },
+      ],
+    );
+  }
+
   async function handleReportSickLeave() {
     if (!selectedSalonId) {
       Alert.alert("Vælg salon", "Vælg en salon før du melder dig syg.");
@@ -161,6 +248,27 @@ export function EmployeeDashboardScreen() {
       Alert.alert("Kunne ikke registrere fravær", String(error));
     } finally {
       setIsSubmittingSickLeave(false);
+    }
+  }
+
+  async function handleResolveSickLeave() {
+    try {
+      setIsResolvingSickLeave(true);
+      const result = await resolveMySickLeave({
+        salonId: selectedSalonId ?? undefined,
+      });
+      if (result.resolvedCount > 0) {
+        Alert.alert(
+          "Meldt rask",
+          `${String(result.resolvedCount)} fraværsperiode(r) blev afsluttet.`,
+        );
+      } else {
+        Alert.alert("Meldt rask", "Ingen aktive fraværsperioder at afslutte.");
+      }
+    } catch (error) {
+      Alert.alert("Kunne ikke melde rask", String(error));
+    } finally {
+      setIsResolvingSickLeave(false);
     }
   }
 
@@ -292,6 +400,26 @@ export function EmployeeDashboardScreen() {
             {isSubmittingSickLeave ? "Gemmer..." : "Meld syg"}
           </Text>
         </Pressable>
+
+        <Pressable
+          disabled={isResolvingSickLeave}
+          onPress={() => {
+            void handleResolveSickLeave();
+          }}
+          className={`rounded-xl px-4 py-3 ${
+            isResolvingSickLeave ? "bg-neutral-200" : "bg-emerald-100"
+          }`}
+          style={{ borderCurve: "continuous" }}
+        >
+          <Text
+            selectable
+            className={`text-center text-base font-semibold ${
+              isResolvingSickLeave ? "text-neutral-600" : "text-emerald-800"
+            }`}
+          >
+            {isResolvingSickLeave ? "Arbejder..." : "Meld rask"}
+          </Text>
+        </Pressable>
       </View>
 
       <View
@@ -331,7 +459,7 @@ export function EmployeeDashboardScreen() {
                   {formatDateTime(booking.endAt)}
                 </Text>
                 <Text selectable className="text-xs text-neutral-500">
-                  Status: {booking.status}
+                  Status: {statusLabelByKey[booking.status] ?? booking.status}
                 </Text>
 
                 {booking.customerNote ? (
@@ -341,60 +469,51 @@ export function EmployeeDashboardScreen() {
                 ) : null}
 
                 {isActive ? (
-                  <View className="flex-row gap-2">
-                    <Pressable
+                  <View className="gap-2 pt-1">
+                    <BookingActionButton
+                      label={isBusy ? "Opdaterer..." : "Marker som udført"}
                       disabled={isBusy}
+                      tone="success"
                       onPress={() => {
-                        void handleShift(
-                          booking.bookingId,
-                          booking.startAt,
-                          -15,
-                        );
+                        void handleComplete(booking.bookingId);
                       }}
-                      className={`flex-1 rounded-lg px-3 py-2 ${isBusy ? "bg-neutral-200" : "bg-neutral-200"}`}
-                      style={{ borderCurve: "continuous" }}
-                    >
-                      <Text
-                        selectable
-                        className="text-center text-xs font-semibold text-neutral-800"
-                      >
-                        Flyt -15 min
-                      </Text>
-                    </Pressable>
-                    <Pressable
+                    />
+                    <View className="flex-row gap-2">
+                      <View className="flex-1">
+                        <BookingActionButton
+                          label="Flyt 15 min tidligere"
+                          disabled={isBusy}
+                          onPress={() => {
+                            void handleShift(
+                              booking.bookingId,
+                              booking.startAt,
+                              -15,
+                            );
+                          }}
+                        />
+                      </View>
+                      <View className="flex-1">
+                        <BookingActionButton
+                          label="Flyt 15 min senere"
+                          disabled={isBusy}
+                          onPress={() => {
+                            void handleShift(
+                              booking.bookingId,
+                              booking.startAt,
+                              15,
+                            );
+                          }}
+                        />
+                      </View>
+                    </View>
+                    <BookingActionButton
+                      label="Aflys booking"
                       disabled={isBusy}
-                      onPress={() => {
-                        void handleShift(
-                          booking.bookingId,
-                          booking.startAt,
-                          15,
-                        );
-                      }}
-                      className={`flex-1 rounded-lg px-3 py-2 ${isBusy ? "bg-neutral-200" : "bg-neutral-200"}`}
-                      style={{ borderCurve: "continuous" }}
-                    >
-                      <Text
-                        selectable
-                        className="text-center text-xs font-semibold text-neutral-800"
-                      >
-                        Flyt +15 min
-                      </Text>
-                    </Pressable>
-                    <Pressable
-                      disabled={isBusy}
+                      tone="danger"
                       onPress={() => {
                         void handleCancel(booking.bookingId);
                       }}
-                      className={`flex-1 rounded-lg px-3 py-2 ${isBusy ? "bg-red-100" : "bg-red-100"}`}
-                      style={{ borderCurve: "continuous" }}
-                    >
-                      <Text
-                        selectable
-                        className="text-center text-xs font-semibold text-red-700"
-                      >
-                        {isBusy ? "Arbejder..." : "Aflys"}
-                      </Text>
-                    </Pressable>
+                    />
                   </View>
                 ) : null}
               </View>

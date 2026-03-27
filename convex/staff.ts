@@ -652,3 +652,43 @@ export const reportMySickLeave = mutation({
     return { absenceId, cancelledCount };
   },
 });
+
+export const resolveMySickLeave = mutation({
+  args: {
+    salonId: v.optional(v.id("salons")),
+  },
+  handler: async (ctx, args) => {
+    const authUser = await requireAuthUser(ctx);
+    const employee = await getEmployeeByAuthUserId(ctx, authUser._id);
+    if (!employee) {
+      throw new Error("Ingen medarbejderprofil fundet.");
+    }
+
+    const now = Date.now();
+    const absences = await ctx.db
+      .query("employeeAbsences")
+      .withIndex("by_employee_start", (q) => q.eq("employeeId", employee._id))
+      .collect();
+
+    const toResolve = absences.filter((absence) => {
+      if (absence.status !== "active") {
+        return false;
+      }
+      if (args.salonId && absence.salonId !== args.salonId) {
+        return false;
+      }
+      return absence.endAt > now;
+    });
+
+    for (const absence of toResolve) {
+      const resolvedEndAt = absence.startAt > now ? absence.startAt : now;
+      await ctx.db.patch(absence._id, {
+        status: "resolved",
+        endAt: resolvedEndAt,
+        updatedAt: now,
+      });
+    }
+
+    return { resolvedCount: toResolve.length };
+  },
+});
